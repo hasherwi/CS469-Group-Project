@@ -1,9 +1,6 @@
 # CS469, Group 1, Project Proposal
 
-Members:
-Corey Brantley
-Shen Knoll
-Harrison Sherwin
+Members: Corey Brantley, Shen Knoll, Harrison Sherwin
 
 "Build a media server that stores MP3 audio files that can be downloaded and played by a client. The server process should be replicated to provide fault tolerance, but the data does not need to be for this project. The client should be able to request a listing of available audio files then choose one to download. The client must be authenticated using cryptographic methods."
 

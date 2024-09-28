@@ -5,6 +5,7 @@ on:
     paths:
       - client.c
       - server.c
+      - Makefile
 
 jobs:
   build:

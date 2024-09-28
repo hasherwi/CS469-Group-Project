@@ -1,9 +1,9 @@
 // So far this is just a skeleton from my Assignment 4.
 
 /**
-* @file ssl-server.c
+* @file server.c
 * @author Harrison Sherwin
-* @date  22 September 2024
+* @date  28 September 2024
 * @brief  This program is a small server application that receives incoming TCP
 *         connections from clients and transfers a requested file from the
 *         server to the client.  It uses a secure SSL/TLS connection using

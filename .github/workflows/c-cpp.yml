@@ -17,23 +17,3 @@ jobs:
     
     - name: make
       run: make
-    
-    - name: Upload server artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: server
-        path: ./server  # Adjust the path if necessary
-
-    - name: Upload client artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: client
-        path: ./client  # Adjust the path if necessary
-
-    - name: Upload other generated files (optional)
-      uses: actions/upload-artifact@v4
-      with:
-        name: binaries
-        path: |
-          ./client
-          ./server

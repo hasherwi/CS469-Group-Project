@@ -2,7 +2,7 @@
 
 /**
 * @file server.c
-* @author Harrison Sherwin
+* @author Corey Brantley, Shen Knoll, Harrison Sherwin
 * @date  28 September 2024
 * @brief  This program is a small server application that receives incoming TCP
 *         connections from clients and transfers a requested file from the

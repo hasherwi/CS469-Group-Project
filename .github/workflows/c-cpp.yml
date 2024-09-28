@@ -6,6 +6,7 @@ on:
       - client.c
       - server.c
       - Makefile
+      - .github/workflows/c-cpp.yml
 
 jobs:
   build:

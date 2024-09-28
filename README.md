@@ -32,11 +32,11 @@ UML Diagram:
 /TODO/
 
 ## File Descriptions
-server.c - Server code in C language
-client.c - Client code in C language
-Makefile - Used to compile C code above.
-Dockerfile - Used to containerize the server code.
-k8s-manifest.yml - Used to describe how to run the server container with Kubernetes.
+server.c - Server code in C language.\
+client.c - Client code in C language.\
+Makefile - Used to compile C code above.\
+Dockerfile - Used to containerize the server code.\
+k8s-manifest.yml - Used to describe how to run the server container with Kubernetes.\
 
 ## How to Setup Dev Environment
 

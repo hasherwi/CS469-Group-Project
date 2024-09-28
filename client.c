@@ -1,9 +1,9 @@
 // So far this is just a copy of my code from Assignment 4.
 
 /**
-* @file ssl-client.c
+* @file client.c
 * @author Harrison Sherwin
-* @date  22 September 2024
+* @date  28 September 2024
  * @brief This program is a small client application that establishes a secure
           TCP connection to a server and simply exchanges messages. It uses a
           SSL/TLS connection using X509 certificates generated with the openssl

@@ -1,4 +1,6 @@
-# CS469, Group 1, Project Proposal
+# CS469, Group 1, Project
+
+## Proposal
 
 Members: Corey Brantley, Shen Knoll, Harrison Sherwin
 
@@ -25,3 +27,29 @@ Source for inspiration for playing back MP3 files: https://hzqtc.github.io/2012/
 
 High Level Architecture Diagram:
 Client > K8s Service  > Replicated Server Containers
+
+UML Diagram:
+/TODO/
+
+## File Descriptions
+server.c - Server code in C language
+client.c - Client code in C language
+Makefile - Used to compile C code above.
+Dockerfile - Used to containerize the server code.
+k8s-manifest.yml - Used to describe how to run the server container with Kubernetes.
+
+## How to Setup Dev Environment
+
+/TODO/
+
+## How to Run Server
+
+/TODO/
+
+## How to Run Client
+
+/TODO/
+
+## How to Clean Up
+
+/TODO/

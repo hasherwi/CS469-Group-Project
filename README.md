@@ -24,6 +24,4 @@ Clients will support the following actions from the user:
 Source for inspiration for playing back MP3 files: https://hzqtc.github.io/2012/05/play-mp3-with-libmpg123-and-libao.html
 
 High Level Architecture Diagram:
-Client > K8s Service  > Server Container
-                      > Server Container
-                      > Server Container
+Client > K8s Service  > Replicated Server Containers

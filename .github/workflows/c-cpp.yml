@@ -82,6 +82,7 @@ jobs:
       run: |
         for node in $(kubectl get nodes -o name | cut -d'/' -f 2); do
           echo "Loading image on $node"
+          minikube cp server-image.tar $node:/server-image.tar
           minikube ssh -n $node 'docker load -i /server-image.tar'
           minikube ssh -n $node 'docker images'
         done

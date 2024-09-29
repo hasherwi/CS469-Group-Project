@@ -118,6 +118,6 @@ jobs:
         
     - name: Check HorizontalPodAutoscaler (HPA) status
       run: |
-        sleep 180  # Wait for the HPA to stabilize
+        sleep 300  # Wait for the HPA to stabilize
         echo "Checking HPA status..."
         kubectl get hpa server-hpa -n mp3-server

@@ -57,3 +57,31 @@ spec:
       port: 80
       targetPort: 8080
   sessionAffinity: None
+  
+---
+
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: server-hpa
+  namespace: mp3-server
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: server-deployment
+  minReplicas: 3  # Minimum number of pods
+  maxReplicas: 10  # Maximum number of pods
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu  # Scale based on CPU usage
+      target:
+        type: Utilization
+        averageUtilization: 75  # Target X% CPU utilization
+  - type: Resource
+    resource:
+      name: memory  # Scale based on memory usage
+      target:
+        type: Utilization
+        averageUtilization: 75  # Target X% memory utilization

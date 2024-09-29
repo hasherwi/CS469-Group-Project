@@ -83,7 +83,11 @@ jobs:
           minikube ssh -n $node 'docker load -i /server-image.tar'
           minikube ssh -n $node 'docker images'
         done
-        
+    
+    - name: Install Kubernetes Metrics Server
+      run: |
+        kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    
     - name: Apply Kubernetes manifest
       run: |
         kubectl apply -f k8s-manifest.yml

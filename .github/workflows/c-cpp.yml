@@ -6,6 +6,7 @@ on:
       - '**/*.c'
       - Makefile
       - Dockerfile
+      - k8s-manifest.yml
       - .github/workflows/c-cpp.yml
 
 jobs:
@@ -94,7 +95,7 @@ jobs:
     - name: Check pod status
       run: |
         echo "Checking pod statuses..."
-        kubectl wait --for=condition=Ready pod --all --timeout=60s
+        kubectl wait --for=condition=Ready pod --all -n mp3-server --timeout=60s
         kubectl get pods
 
     - name: Check service status

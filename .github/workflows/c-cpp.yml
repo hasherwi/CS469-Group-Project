@@ -68,7 +68,7 @@ jobs:
         
     - name: Start Minikube
       run: |
-        minikube start --driver=docker --nodes 3
+        minikube start --driver=docker
         
     - name: Tell Minikube to use the Docker environment
       run: |

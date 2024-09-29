@@ -14,11 +14,11 @@ endif
 
 all: client server playaudio
 
-playaudio: playaudio.c
-	$(CC) $(CFLAGS) -o playaudio playaudio.c $(AUDIOFLAGS)
+playaudio: playaudio.o
+	$(CC) $(AUDIOFLAGS) -o playaudio playaudio.o $(AUDIOFLAGS)
 
 playaudio.o: playaudio.c
-	$(CC) $(CFLAGS) -c playaudio.c
+	$(CC) $(AUDIOFLAGS) -c playaudio.c
 
 client: client.o
 	$(CC) $(CFLAGS) -o client client.o $(LDFLAGS)

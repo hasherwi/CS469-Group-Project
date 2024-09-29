@@ -2,12 +2,8 @@ name: C/C++ CI
 
 on:
   push:
-    paths:
-      - '**/*.c'
-      - Makefile
-      - Dockerfile
-      - k8s-manifest.yml
-      - .github/workflows/c-cpp.yml
+    paths-ignore:
+      - '**/*.md'  # Ignore pushes that only change Markdown files
 
 jobs:
   build:

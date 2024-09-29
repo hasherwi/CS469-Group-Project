@@ -34,9 +34,11 @@ UML Diagram:
 ## File Descriptions
 server.c - Server code in C language.\
 client.c - Client code in C language.\
+playaudio.c - A component of the client code in C language.\
 Makefile - Used to compile C code above.\
 Dockerfile - Used to containerize the server code.\
-k8s-manifest.yml - Used to describe how to run the server container with Kubernetes.
+k8s-manifest.yml - Used to describe how to run the server container with Kubernetes.\
+sample-mp3s/ - Contains MP3 files for the server to hold.
 
 ## How to Setup Dev Environment
 
@@ -44,12 +46,8 @@ k8s-manifest.yml - Used to describe how to run the server container with Kuberne
 
 ## How to Run Server
 
-/TODO/
+The server is available here as C source code. In the future, we'll provide an executable, Docker image, and Kubernetes manifest.
 
 ## How to Run Client
 
-/TODO/
-
-## How to Clean Up
-
-/TODO/
+The client is available here as C source code. In the future, we'll provide an executable.

@@ -9,7 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
 
 # Copy the source files into the container
-COPY server /app
+COPY server cert.pem key.pem /app
 
 # Expose the port your server will run on
 EXPOSE 8080

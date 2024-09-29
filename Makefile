@@ -6,7 +6,8 @@ ARCH := $(shell uname -m)
 
 ifeq ($(UNAME), Darwin)
   ifeq ($(ARCH), arm64)
-    CFLAGS := -I/opt/homebrew/include -L/opt/homebrew/lib
+	CFLAGS := -I/opt/homebrew/include -L/opt/homebrew/lib
+    AUDIOFLAGS :=  $(CFLAGS) $(AUDIOFLAGS)
   else
     CFLAGS := -I/usr/local/opt/openssl/include -L/usr/local/opt/openssl/lib
   endif

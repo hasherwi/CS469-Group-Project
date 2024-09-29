@@ -21,3 +21,9 @@ jobs:
     
     - name: Run make command
       run: make
+      
+    - name: Build server image
+      run: docker build -t server .
+      
+    - name: Run a server container
+      run: docker run -p 8080:8080 server

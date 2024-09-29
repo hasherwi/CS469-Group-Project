@@ -1,5 +1,6 @@
 # Use an official Ubuntu image as a base
-FROM ubuntu:latest #TODO: Switch to a specific version.
+#TODO: Switch to a specific version.
+FROM ubuntu:latest
 
 # Set environment variables to avoid user prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive

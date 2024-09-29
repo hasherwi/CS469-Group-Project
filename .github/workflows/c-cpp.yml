@@ -93,6 +93,17 @@ jobs:
         sleep 10  # Wait for the pods to stabilize
         echo "Checking pod statuses..."
         kubectl get pods -n mp3-server
+        
+    - name: Check for CrashLoopBackOff status
+      run: |
+        echo "Checking for CrashLoopBackOff pod statuses..."
+        STATUS=$(kubectl get pods -n mp3-server --no-headers -o custom-columns=":status.containerStatuses[*].state.waiting.reason")
+        if echo "$STATUS" | grep -q "CrashLoopBackOff"; then
+          echo "Pod(s) in CrashLoopBackOff state, failing the workflow."
+          exit 1
+        else
+          echo "No CrashLoopBackOff state found in any pod."
+        fi
 
     - name: Check service status
       run: |

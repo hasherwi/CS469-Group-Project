@@ -68,7 +68,7 @@ jobs:
         
     - name: Start Minikube
       run: |
-        minikube start --driver=docker
+        minikube start --driver=docker --nodes 3
         
     - name: Tell Minikube to use the Docker environment
       run: |
@@ -80,9 +80,10 @@ jobs:
         
     - name: Load tar on all Minikube nodes
       run: |
-        for node in $(minikube node list -o json | jq -r '.[] | .Name'); do
+        for node in $(kubectl get nodes -o name | cut -d'/' -f 2); do
           echo "Loading image on $node"
           minikube ssh -n $node 'docker load -i /server-image.tar'
+          minikube ssh -n $node 'docker images'
         done
         
     - name: Apply Kubernetes manifest

@@ -93,5 +93,12 @@ jobs:
         
     - name: Check pod status
       run: |
-        sleep 10  # Give some time for the pods to initialize
+        echo "Checking pod statuses..."
+        kubectl wait --for=condition=Ready pod --all --timeout=60s
         kubectl get pods
+
+    - name: Check service status
+      run: |
+        echo "Checking service status..."
+        kubectl get svc
+        minikube service server-service --url

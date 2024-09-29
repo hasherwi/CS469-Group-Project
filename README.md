@@ -31,7 +31,8 @@ Client > K8s Service (Load Balancer Type)  > Replicated Server Containers
 The K8s service and containers will run on nodes of the Kubernetes cluster. Kubernetes cluster architecture is explained here: https://kubernetes.io/docs/concepts/architecture/
 
 UML Diagram:
-/TODO/
+
+![MP3DownloadAndPlay.png](diagrams/MP3DownloadAndPlay.png)
 
 ## File Descriptions
 server.c - Server code in C language.\

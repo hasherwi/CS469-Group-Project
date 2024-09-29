@@ -60,7 +60,7 @@ spec:
   
 ---
 
-apiVersion: autoscaling/v2beta2
+apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: server-hpa
@@ -72,16 +72,4 @@ spec:
     name: server-deployment
   minReplicas: 3  # Minimum number of pods
   maxReplicas: 10  # Maximum number of pods
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu  # Scale based on CPU usage
-      target:
-        type: Utilization
-        averageUtilization: 75  # Target X% CPU utilization
-  - type: Resource
-    resource:
-      name: memory  # Scale based on memory usage
-      target:
-        type: Utilization
-        averageUtilization: 75  # Target X% memory utilization
+  targetCPUUtilizationPercentage: 80  # Target X% CPU utilization

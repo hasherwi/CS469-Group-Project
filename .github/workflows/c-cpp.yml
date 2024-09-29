@@ -94,15 +94,16 @@ jobs:
         echo "Checking pod statuses..."
         kubectl get pods -n mp3-server
         
-    - name: Check for CrashLoopBackOff status
+    - name: Check pod status and ensure all pods are running
       run: |
-        echo "Checking for CrashLoopBackOff pod statuses..."
-        STATUS=$(kubectl get pods -n mp3-server --no-headers -o custom-columns=":status.containerStatuses[*].state.waiting.reason")
-        if echo "$STATUS" | grep -q "CrashLoopBackOff"; then
-          echo "Pod(s) in CrashLoopBackOff state, failing the workflow."
+        echo "Checking if all pods are in Running state..."
+        STATUS=$(kubectl get pods -n mp3-server --no-headers -o custom-columns=":status.phase")
+        if echo "$STATUS" | grep -v "Running"; then
+          echo "Some pods are not in Running state, failing the workflow."
+          echo "Pod statuses: $STATUS"
           exit 1
         else
-          echo "No CrashLoopBackOff state found in any pod."
+          echo "All pods are in Running state."
         fi
 
     - name: Check service status

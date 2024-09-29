@@ -27,7 +27,7 @@ jobs:
     - name: Create SSL data
       run: openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj "/C=US/ST=CO/L=Denver/O=RegisUniversity/OU=CS469/CN=regis.edu/emailAddress=hsherwin@regis.edu"
       
-    - name: Build server image
+    - name: Build Docker image for server
       run: |
         docker build -t server .
         docker images
@@ -35,7 +35,7 @@ jobs:
     - name: Run a server container
       run: docker run -d --name test-server -p 8080:8080 server
       
-    - name: Check container status
+    - name: Check Docker container status
       run: |
         sleep 10  # Wait for the server to stabilize
         STATUS=$(docker inspect --format='{{.State.Status}}' test-server)
@@ -46,10 +46,14 @@ jobs:
           echo "Server is running, status: $STATUS"
         fi
     
-    - name: Stop and remove container
+    - name: Stop and remove Docker container
       run: |
         docker stop test-server
         docker rm test-server
+        
+    - name: Save Docker image as tar
+      run: |
+        docker save -o server-image.tar server:latest
         
     - name: Install Kubectl
       run: |
@@ -73,6 +77,13 @@ jobs:
     - name: Check Minikube status
       run: |
         minikube status
+        
+    - name: Load tar on all Minikube nodes
+      run: |
+        for node in $(minikube node list -o json | jq -r '.[] | .Name'); do
+          echo "Loading image on $node"
+          minikube ssh -n $node 'docker load -i /server-image.tar'
+        done
         
     - name: Apply Kubernetes manifest
       run: |

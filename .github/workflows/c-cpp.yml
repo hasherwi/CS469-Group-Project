@@ -5,6 +5,7 @@ on:
     paths:
       - '**/*.c'
       - Makefile
+      - Dockerfile
       - .github/workflows/c-cpp.yml
 
 jobs:

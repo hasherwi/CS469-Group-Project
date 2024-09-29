@@ -3,7 +3,8 @@ name: C/C++ CI
 on:
   push:
     paths:
-      - *.c
+      - client.c
+      - server.c
       - Makefile
       - .github/workflows/c-cpp.yml
 

@@ -17,7 +17,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libmpg123-dev liblao-dev
+        sudo apt-get install -y libmpg123-dev libao-dev
     
     - name: Run make command
       run: make

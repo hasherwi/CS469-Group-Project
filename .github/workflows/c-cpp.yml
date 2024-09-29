@@ -32,4 +32,20 @@ jobs:
         docker images
       
     - name: Run a server container
-      run: docker run -p 8080:8080 server
+      run: docker run -d --name test-server -p 8080:8080 server
+      
+    - name: Check container status
+      run: |
+        sleep 10  # Wait for the server to stabilize
+        STATUS=$(docker inspect --format='{{.State.Status}}' test-server)
+        if [ "$STATUS" != "running" ]; then
+          echo "Server failed to start, status: $STATUS"
+          exit 1
+        else
+          echo "Server is running, status: $STATUS"
+        fi
+    
+    - name: Stop and remove container
+      run: |
+        docker stop test-server
+        docker rm test-server

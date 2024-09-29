@@ -64,7 +64,11 @@ jobs:
         
     - name: Start Minikube
       run: |
-        minikube start --insecure-registry --driver=docker
+        minikube start --driver=docker
+        
+    - name: Tell Minikube to use the Docker environment
+      run: |
+        eval $(minikube -p minikube docker-env)
     
     - name: Check Minikube status
       run: |

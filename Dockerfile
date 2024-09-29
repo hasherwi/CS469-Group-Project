@@ -1,6 +1,5 @@
 # Use an official Ubuntu image as a base
-#TODO: Switch to a specific version.
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 # Set environment variables to avoid user prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -10,6 +9,9 @@ WORKDIR /app
 
 # Copy the source files into the container
 COPY server cert.pem key.pem /app
+
+# Copy all mp3 files from the local sample-mp3s folder into the container
+COPY sample-mp3s /app/sample-mp3s
 
 # Expose the port your server will run on
 EXPOSE 8080

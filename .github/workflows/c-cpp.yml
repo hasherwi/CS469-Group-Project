@@ -64,7 +64,7 @@ jobs:
         
     - name: Start Minikube
       run: |
-        minikube start --driver=docker
+        minikube start --insecure-registry --driver=docker
     
     - name: Check Minikube status
       run: |

@@ -24,7 +24,9 @@ jobs:
       run: make
       
     - name: Build server image
-      run: docker build -t server .
+      run: |
+        docker build -t server .
+        docker images
       
     - name: Run a server container
       run: docker run -p 8080:8080 server

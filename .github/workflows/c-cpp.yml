@@ -102,4 +102,4 @@ jobs:
       run: |
         echo "Checking service status..."
         kubectl get svc -n mp3-server
-        minikube service server-service --url
+        minikube service server-service -n mp3-server --url

@@ -1,7 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mp3-server
+
+---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: server-deployment
+  namespace: mp3-server
   labels:
     app.kubernetes.io/name: server
 spec:
@@ -9,6 +17,11 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   template:
     metadata:
       labels:
@@ -17,8 +30,16 @@ spec:
       containers:
       - name: server
         image: server:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "125m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
 
 ---
 
@@ -26,6 +47,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: server-service
+  namespace: mp3-server
 spec:
   type: LoadBalancer
   selector:
@@ -34,3 +56,20 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8080
+  sessionAffinity: None
+  
+---
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: server-hpa
+  namespace: mp3-server
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: server-deployment
+  minReplicas: 3  # Minimum number of pods
+  maxReplicas: 10  # Maximum number of pods
+  targetCPUUtilizationPercentage: 80  # Target X% CPU utilization

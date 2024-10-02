@@ -1,17 +1,20 @@
-# Use a base image with a C compiler
-FROM gcc:latest #TODO: Switch to a specific version.
+# Use an official Ubuntu image as a base
+FROM ubuntu:22.04
 
-# Set the working directory inside the container
+# Set environment variables to avoid user prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Create a directory for the application
 WORKDIR /app
 
-# Copy the source code to the container
-COPY server.c /app
+# Copy the source files into the container
+COPY server cert.pem key.pem /app
 
-# Compile the C code
-RUN gcc -o server *.c
+# Copy all mp3 files from the local sample-mp3s folder into the container
+COPY sample-mp3s /app/sample-mp3s
 
-# Copy the MP3 files to the container
-COPY music/*.mp3 /app/music
+# Expose the port your server will run on
+EXPOSE 8080
 
-# Set the entrypoint to run the compiled program
+# Run the compiled server binary
 CMD ["./server"]

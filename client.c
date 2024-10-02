@@ -37,8 +37,9 @@
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
 
+#include "CommunicationConstants.h"
+
 // Global statics
-#define DEFAULT_PORT        8080
 #define DEFAULT_HOST        "localhost"
 #define MAX_HOSTNAME_LENGTH 256
 #define BUFFER_SIZE         256
@@ -115,17 +116,22 @@ int main(int argc, char** argv) {
   unsigned int      port = DEFAULT_PORT;
   char              remote_host[MAX_HOSTNAME_LENGTH];
   char              buffer[BUFFER_SIZE];
+  char              fileName[BUFFER_SIZE];
+  char              operation[5];
+  char              serverError[11];
+  int               serverErrno;
   char*             temp_ptr;
   int               sockfd;
-  int               writefd;
+  int               writefd = 0;
   int               rcount;
   int               wcount;
-  int               total = 0;
+  int               rtotal = 0;
+  int               wtotal = 0;
   SSL_CTX*          ssl_ctx;
   SSL*              ssl;
 
-  if (argc != 3) {
-    fprintf(stderr, "Client: Usage: ssl-client <server name>:<port> <file-name>\n");
+  if (argc != 2) {
+    fprintf(stderr, "Client: Usage: ssl-client <server name>:<port>\n");
     exit(EXIT_FAILURE);
   } else {
     // Search for ':' in the argument to see if port is specified
@@ -139,11 +145,7 @@ int main(int argc, char** argv) {
       strncpy(remote_host, strtok(argv[1], ":"), MAX_HOSTNAME_LENGTH);
       // Port number will be the substring after the ':'. At this point
       // temp is a pointer to the array element containing the ':'
-      // Check for a valid port number.
-      if (sscanf(temp_ptr + 1, "%u", &port) != 1 || port < 1 || port > 65535) {
-        fprintf(stderr, "Client: Invalid port number. Please provide a port number between 1 and 65535.\n");
-        exit(EXIT_FAILURE);
-      }
+      port = (unsigned int) atoi(temp_ptr+sizeof(char));
     }
   }
 
@@ -205,35 +207,73 @@ int main(int argc, char** argv) {
   // SSL socket descriptor ssl declared above instead of a file descriptor.
   // ************************************************************************
 
-  int bytes_read;
-  FILE* file;
-  char* filename = argv[2];
 
-  // Send filename to server
-  SSL_write(ssl, filename, strlen(filename));
+ // Read input
+  printf("Client: Please enter the file you want to download: ");
+  bzero(buffer, BUFFER_SIZE);
+  fgets(buffer, BUFFER_SIZE-1, stdin);
 
-  // Receive error or success code
-  int result_code;
-  SSL_read(ssl, &result_code, sizeof(result_code));
-  if (result_code != 0) {
-      fprintf(stderr, "Error: %s\n", strerror(result_code));
+  // Remove trailing newline character
+  buffer[strlen(buffer)-1] = '\0';
+  
+  // Pull everything written by user as filename. Filename could include spaces. 
+  sscanf(buffer, "%4s %[^\t\n]", operation, fileName);
+
+  // Write to server
+  wcount = SSL_write(ssl, buffer, strlen(buffer));
+  if (wcount < 0) {
+    fprintf(stderr, "Client: Could not write message to socket: %s\n",
+	    strerror(errno));
+    exit(EXIT_FAILURE);
+  } else {
+    printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
+	   buffer, remote_host, port);
+  }
+
+  bzero(buffer, BUFFER_SIZE);
+
+  
+  // Recieve from server
+  while ((rcount = SSL_read(ssl, buffer, BUFFER_SIZE)) > 0 ) {
+    buffer[rcount] = '\0';
+
+    sscanf(buffer, "%10s %d", serverError, &serverErrno);
+    if (strcmp(serverError, "FILEERROR") == 0) {
+      fprintf(stderr, "Client: Server encountered file error: %s\n", strerror(serverErrno));
       exit(EXIT_FAILURE);
-  }
-
-  // Create a local file to save the downloaded data
-  file = fopen(filename, "wb");
-  if (!file) {
-      fprintf(stderr, "Client: Failed to create local file");
+    } else if (strcmp(serverError, "RPCERROR") == 0) {
+      if (serverErrno == -1) {
+        fprintf(stderr, "Client: Server encountered error: Illegal operation -- must be 'copy'\n");
+      }
       exit(EXIT_FAILURE);
+
+    } else if(writefd < 1) { // if a file hasn't been opened for writing
+      // Open file for writing
+      writefd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR); // Open for writing, create if it doesn't exist, overwrite if allowed to
+      if (writefd < 0) {
+        fprintf(stderr, "Client: Could not open file \"%s\" for writing: %s\n", fileName, strerror(errno));
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    wcount = write(writefd, buffer, rcount);
+    if (wcount < 0) {
+      fprintf(stderr, "Client: Error while writing to file \"%s\": %s\n", fileName, strerror(errno));
+    exit(EXIT_FAILURE);
+    }
+
+    // track total bytes written and read
+    rtotal += rcount;
+    wtotal += wcount;
   }
 
-  // Read file data from server and write to local file
-  while ((bytes_read = SSL_read(ssl, buffer, sizeof(buffer))) > 0) {
-      fwrite(buffer, 1, bytes_read, file);
+  if (rcount < 0) {
+        fprintf(stderr, "Error reading from server: %s\n", strerror(errno));
+        return EXIT_FAILURE;
+  } else
+  {
+    printf("Client:\n\tBytes recieved: %d\n\tBytes written: %d\n\n", rtotal, wtotal);
   }
-
-  fclose(file);
-  printf("File '%s' downloaded successfully.\n", filename);
 
   // Deallocate memory for the SSL data structures and close the socket
   SSL_free(ssl);

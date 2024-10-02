@@ -36,9 +36,11 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#include "CommunicationConstants.h"
+
+
 // Global statics
 #define BUFFER_SIZE       256
-#define DEFAULT_PORT      8080
 #define CERTIFICATE_FILE  "cert.pem"
 #define KEY_FILE          "key.pem"
 

@@ -2,11 +2,8 @@ name: C/C++ CI
 
 on:
   push:
-    paths:
-      - client.c
-      - server.c
-      - Makefile
-      - .github/workflows/c-cpp.yml
+    paths-ignore:
+      - '**/*.md'  # Ignore pushes that only change Markdown files
 
 jobs:
   build:
@@ -15,25 +12,111 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
     
-    - name: make
-      run: make
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libmpg123-dev libao-dev
     
-    - name: Upload server artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: server
-        path: ./server  # Adjust the path if necessary
+    - name: Run make command
+      run: |
+        make
+      
+    - name: Create SSL data
+      run: openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj "/C=US/ST=CO/L=Denver/O=RegisUniversity/OU=CS469/CN=regis.edu/emailAddress=hsherwin@regis.edu"
+      
+    - name: Build Docker image for server
+      run: |
+        docker build -t server .
+        docker images
+      
+    - name: Run a server container
+      run: docker run -d --name test-server -p 8080:8080 server
+      
+    - name: Check Docker container status
+      run: |
+        sleep 10  # Wait for the server to stabilize
+        STATUS=$(docker inspect --format='{{.State.Status}}' test-server)
+        if [ "$STATUS" != "running" ]; then
+          echo "Server failed to start, status: $STATUS"
+          exit 1
+        else
+          echo "Server is running, status: $STATUS"
+        fi
+    
+    - name: Stop and remove Docker container
+      run: |
+        docker stop test-server
+        docker rm test-server
+        
+    - name: Save Docker image as tar
+      run: |
+        docker save -o server-image.tar server:latest
+        
+    - name: Install Kubectl
+      run: |
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+        chmod +x ./kubectl
+        sudo mv ./kubectl /usr/local/bin/kubectl
 
-    - name: Upload client artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: client
-        path: ./client  # Adjust the path if necessary
+    - name: Install Minikube
+      run: |
+        curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo install minikube-linux-amd64 /usr/local/bin/minikube
+        
+    - name: Start Minikube
+      run: |
+        minikube start --driver=docker
+        
+    - name: Tell Minikube to use the Docker environment
+      run: |
+        eval $(minikube -p minikube docker-env)
+    
+    - name: Check Minikube status
+      run: |
+        minikube status
+        
+    - name: Load tar on all Minikube nodes
+      run: |
+        for node in $(kubectl get nodes -o name | cut -d'/' -f 2); do
+          echo "Loading image on $node"
+          minikube cp server-image.tar $node:/server-image.tar
+          minikube ssh -n $node 'docker load -i /server-image.tar'
+          minikube ssh -n $node 'docker images'
+        done
+    
+    - name: Install Kubernetes Metrics Server
+      run: |
+        kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    
+    - name: Apply Kubernetes manifest
+      run: |
+        kubectl apply -f k8s-manifest.yml
+        
+    - name: Check pod status
+      run: |
+        sleep 10  # Wait for the pods to stabilize
+        echo "Checking pod statuses..."
+        kubectl get pods -n mp3-server
+        
+    - name: Check pod status and ensure all pods are running
+      run: |
+        echo "Checking if all pods are in Running state..."
+        STATUS=$(kubectl get pods -n mp3-server --no-headers -o custom-columns=":status.phase")
+        if echo "$STATUS" | grep -v "Running"; then
+          echo "Some pods are not in Running state, failing the workflow."
+          echo "Pod statuses: $STATUS"
+          exit 1
+        else
+          echo "All pods are in Running state."
+        fi
 
-    - name: Upload other generated files (optional)
-      uses: actions/upload-artifact@v4
-      with:
-        name: binaries
-        path: |
-          ./client
-          ./server
+    - name: Check service status
+      run: |
+        echo "Checking service status..."
+        kubectl get svc -n mp3-server
+        minikube service server-service -n mp3-server --url
+        
+    - name: Check HorizontalPodAutoscaler (HPA) status
+      run: |
+        echo "Checking HPA status..."
+        kubectl get hpa server-hpa -n mp3-server

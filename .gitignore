@@ -53,3 +53,9 @@ dkms.conf
 
 # Mac stuff
 *.DS_store
+
+# VSCode
+*.vscode
+
+# Certs
+*.pem

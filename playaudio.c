@@ -3,8 +3,7 @@
 
 #define BITS 8
 
-int main(int argc, char *argv[])
-{
+int playAudio(char* fileName) {
     mpg123_handle *mh;
     char *buffer;
     size_t buffer_size;
@@ -18,8 +17,6 @@ int main(int argc, char *argv[])
     int channels, encoding;
     long rate;
 
-    if(argc < 2)
-        exit(0);
 
     /* initializations */
     ao_initialize();
@@ -30,7 +27,7 @@ int main(int argc, char *argv[])
     buffer = (char*) malloc(buffer_size * sizeof(char));
 
     /* open the file and get the decoding format */
-    mpg123_open(mh, argv[1]);
+    mpg123_open(mh, fileName);
     mpg123_getformat(mh, &rate, &channels, &encoding);
 
     /* set the output format and open the output device */

@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -38,11 +39,18 @@
 #include <openssl/x509_vfy.h>
 
 #include "CommunicationConstants.h"
+#include "playaudio.h"
 
 // Global statics
 #define DEFAULT_HOST        "localhost"
 #define MAX_HOSTNAME_LENGTH 256
 #define BUFFER_SIZE         256
+
+void requestAvailableDownloads();
+void searchAvailableDownloads();
+int downloadMP3(char* filename);
+int playMP3(char* filename);
+
 
 /**
 * @brief This function does the basic necessary housekeeping to establish a secure TCP
@@ -129,7 +137,7 @@ int main(int argc, char** argv) {
   int               wtotal = 0;
   SSL_CTX*          ssl_ctx;
   SSL*              ssl;
-
+  playMP3("./sample-mp3s/Sprouts.mp3");
   if (argc != 2) {
     fprintf(stderr, "Client: Usage: ssl-client <server name>:<port>\n");
     exit(EXIT_FAILURE);
@@ -198,15 +206,6 @@ int main(int argc, char** argv) {
     fprintf(stderr, "Client: Could not establish SSL session to '%s' on port %u\n", remote_host, port);
     exit(EXIT_FAILURE);
   }
-
-  //*************************************************************************
-  // YOUR CODE HERE
-  //
-  // You will need to use the SSL_read and SSL_write functions, which work in
-  // the same manner as traditional read and write system calls, but use the
-  // SSL socket descriptor ssl declared above instead of a file descriptor.
-  // ************************************************************************
-
 
  // Read input
   printf("Client: Please enter the file you want to download: ");
@@ -281,6 +280,26 @@ int main(int argc, char** argv) {
   close(sockfd);
   printf("Client: Terminated SSL/TLS connection with server '%s'\n",
 	 remote_host);
+
+  return EXIT_SUCCESS;
+}
+
+void *thread_playMP3(void *arg) {
+  char* fileName = (char *)arg;
+  printf("%s\n", fileName);
+  playAudio(arg);
+  pthread_exit(NULL);
+}
+
+// Play MP3 file
+int playMP3(char* fileName) {
+  pthread_t ptid;
+  // check that file is proper format
+  // Using threads to make playing audio async so we can await user input to stop
+  pthread_create(&ptid, NULL, &thread_playMP3, fileName);
+  // stop playing?
+  sleep(5);
+  pthread_cancel(ptid);
 
   return EXIT_SUCCESS;
 }

@@ -286,7 +286,6 @@ int main(int argc, char** argv) {
 
 void *thread_playMP3(void *arg) {
   char* fileName = (char *)arg;
-  printf("%s\n", fileName);
   playAudio(arg);
   pthread_exit(NULL);
 }
@@ -297,8 +296,12 @@ int playMP3(char* fileName) {
   // check that file is proper format
   // Using threads to make playing audio async so we can await user input to stop
   pthread_create(&ptid, NULL, &thread_playMP3, fileName);
-  // stop playing?
-  sleep(5);
+
+  printf("Playing audio from \"%s\" ... Press Enter to stop.\n", fileName); // Include Audio title? Need metadata? Or just display filename
+  // Wait for user to press Enter
+  getchar();
+  printf("Audio stopped.\n");
+
   pthread_cancel(ptid);
 
   return EXIT_SUCCESS;

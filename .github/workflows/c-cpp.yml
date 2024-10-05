@@ -65,11 +65,16 @@ jobs:
         
     - name: Start Minikube
       run: |
-        minikube start --driver=docker --insecure-registry
+        minikube start --driver=docker --nodes=3 --insecure-registry="10.0.0.0/24"
         
     - name: Tell Minikube to use the Docker environment
       run: |
-        eval $(minikube -p minikube docker-env)
+        eval $(minikube docker-env)
+        
+    - name: Build Docker image for server inside Minikube
+      run: |
+        docker build -t server:latest .
+        docker images
     
     - name: Check Minikube status
       run: |
@@ -92,15 +97,10 @@ jobs:
       run: |
         kubectl apply -f k8s-manifest.yml
         
-    - name: Check pod status
-      run: |
-        sleep 10  # Wait for the pods to stabilize
-        echo "Checking pod statuses..."
-        kubectl get pods -n mp3-server
-        
     - name: Check pod status and ensure all pods are running
       run: |
         echo "Checking if all pods are in Running state..."
+        sleep 10  # Wait for the pods to stabilize
         STATUS=$(kubectl get pods -n mp3-server --no-headers -o custom-columns=":status.phase")
         if echo "$STATUS" | grep -v "Running"; then
           echo "Some pods are not in Running state, failing the workflow."

@@ -48,10 +48,6 @@ jobs:
         docker stop test-server
         docker rm test-server
         
-    - name: Save Docker image as tar
-      run: |
-        docker save -o server-image.tar server:latest
-        
     - name: Install Kubectl
       run: |
         curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
@@ -67,6 +63,14 @@ jobs:
       run: |
         minikube start --driver=docker --nodes=3 --insecure-registry="10.0.0.0/24"
         
+    - name: Install Minikube Registry Addon
+      run: |
+        minikube addons enable registry
+        
+    - name: Configure registry networking
+      run: |
+        docker run --rm -it --network=host alpine ash -c "apk add socat && socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000"
+    
     - name: Tell Minikube to use the Docker environment
       run: |
         eval $(minikube docker-env)
@@ -74,20 +78,13 @@ jobs:
     - name: Build Docker image for server inside Minikube
       run: |
         docker build -t server:latest .
+        docker tag server localhost:5000/server
+        docker push localhost:5000/server
         docker images
     
     - name: Check Minikube status
       run: |
         minikube status
-        
-    - name: Load tar on all Minikube nodes
-      run: |
-        for node in $(kubectl get nodes -o name | cut -d'/' -f 2); do
-          echo "Loading image on $node"
-          minikube cp server-image.tar $node:/server-image.tar
-          minikube ssh -n $node 'docker load -i /server-image.tar'
-          minikube ssh -n $node 'docker images'
-        done
     
     - name: Install Kubernetes Metrics Server
       run: |

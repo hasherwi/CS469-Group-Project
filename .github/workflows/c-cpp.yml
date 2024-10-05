@@ -76,17 +76,18 @@ jobs:
     - name: Get Minikube IP
       run: |
         echo "MINIKUBE_IP=$(minikube ip)" >> $GITHUB_ENV
+    
+    - name: Check Minikube registry status
+      run: |
+        kubectl get svc -n kube-system registry
         
     - name: Configure Docker to allow insecure registry
       run: |
         echo '{
-          "insecure-registries" : ["${MINIKUBE_IP}:5000"]
+          "insecure-registries" : ["'${MINIKUBE_IP}':5000"]
         }' | sudo tee /etc/docker/daemon.json
+        sudo systemctl daemon-reload
         sudo systemctl restart docker
-        
-    - name: Check Minikube registry status
-      run: |
-        kubectl get svc -n kube-system registry
     
     - name: Tag and push Docker image for server to Minikube registry
       run: |

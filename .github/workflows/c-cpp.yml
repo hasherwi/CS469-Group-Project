@@ -77,6 +77,14 @@ jobs:
         docker tag server ghcr.io/hasherwi/server:latest
         docker push ghcr.io/hasherwi/server:latest
         docker images
+        
+    - name: Create secret for GHCR
+      run: |
+        kubectl create secret docker-registry ghcr-secret \
+          --docker-server=ghcr.io \
+          --docker-username=${{ github.repository_owner }} \
+          --docker-password=${{ secrets.GHCR_TOKEN }} \
+          --docker-email=harrison.sherwin@gmail.com
     
     - name: Apply Kubernetes manifest
       run: |

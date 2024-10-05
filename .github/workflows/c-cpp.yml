@@ -75,9 +75,8 @@ jobs:
       run: |
         eval $(minikube docker-env)
         
-    - name: Build Docker image for server inside Minikube
+    - name: Tag and push Docker image for server inside Minikube
       run: |
-        docker build -t server:latest .
         docker tag server localhost:5000/server
         docker push localhost:5000/server
         docker images

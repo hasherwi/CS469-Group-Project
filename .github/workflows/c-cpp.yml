@@ -70,15 +70,11 @@ jobs:
     - name: Configure registry networking
       run: |
         docker run -d --rm --network=host alpine ash -c "apk add socat && socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000"
-    
-    - name: Tell Minikube to use the Docker environment
-      run: |
-        eval $(minikube docker-env)
         
     - name: Tag and push Docker image for server inside Minikube
       run: |
-        docker tag server localhost:5000/server
-        docker push localhost:5000/server
+        docker tag server:latest localhost:5000/server:latest
+        docker push localhost:5000/server:latest
         docker images
     
     - name: Check Minikube status

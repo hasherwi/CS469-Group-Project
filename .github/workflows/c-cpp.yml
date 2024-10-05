@@ -79,9 +79,10 @@ jobs:
         docker push localhost:5000/server:latest
         docker images
     
-    - name: Check Minikube status
+    - name: Check Minikube and Cluster status
       run: |
         minikube status
+        kubectl get pods -A
     
     - name: Install Kubernetes Metrics Server
       run: |
@@ -95,6 +96,7 @@ jobs:
       run: |
         echo "Checking if all pods are in Running state..."
         sleep 10  # Wait for the pods to stabilize
+        kubectl get pods -A
         STATUS=$(kubectl get pods -n mp3-server --no-headers -o custom-columns=":status.phase")
         if echo "$STATUS" | grep -v "Running"; then
           echo "Some pods are not in Running state, failing the workflow."

@@ -78,11 +78,6 @@ jobs:
         docker tag server:latest localhost:5000/server:latest
         docker push localhost:5000/server:latest
         docker images
-        
-    - name: Stop registry port-forwarding
-      run: |
-        pkill -f "kubectl port-forward"
-
     
     - name: Check Minikube status
       run: |

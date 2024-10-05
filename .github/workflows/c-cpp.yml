@@ -70,12 +70,19 @@ jobs:
     - name: Configure registry networking
       run: |
         docker run -d --rm --network=host alpine ash -c "apk add socat && socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000"
+        kubectl port-forward --namespace kube-system $(kubectl get po -n kube-system | grep registry | awk '{print $1}') 5000:5000 &
+        sleep 5  # Give it time to establish the port forwarding
         
     - name: Tag and push Docker image for server inside Minikube
       run: |
         docker tag server:latest localhost:5000/server:latest
         docker push localhost:5000/server:latest
         docker images
+        
+    - name: Stop registry port-forwarding
+      run: |
+        pkill -f "kubectl port-forward"
+
     
     - name: Check Minikube status
       run: |

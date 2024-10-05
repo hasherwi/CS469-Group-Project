@@ -61,63 +61,23 @@ jobs:
         
     - name: Start Minikube
       run: |
-        minikube start --driver=docker --nodes=3 --insecure-registry="10.0.0.0/24"
+        minikube start --driver=docker --nodes=3
         
-    - name: Check Minikube and Cluster status (1)
+    - name: Check Minikube and Cluster status
       run: |
         sleep 10  # Wait for the nodes to stabilize
         minikube status
         kubectl get pods -A
         
-    - name: Install Minikube Registry Addon
+    - name: Log in to GitHub Container Registry (GHCR)
       run: |
-        minikube addons enable registry
-        
-    - name: Get Minikube IP
+        echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+ 
+    - name: Tag and push Docker image to GHCR
       run: |
-        echo "MINIKUBE_IP=$(minikube ip)" >> $GITHUB_ENV
-    
-    - name: Check Minikube registry status
-      run: |
-        kubectl get pods -n kube-system | grep registry
-        kubectl get svc -n kube-system | grep registry
-        
-    - name: Port forward Minikube registry to localhost
-      run: |
-        kubectl port-forward --namespace kube-system svc/registry 5000:5000 &
-        sleep 5  # Give it time to establish the port forwarding
-        
-    - name: Start Minikube tunnel for registry
-      run: |
-        sudo nohup minikube tunnel > /dev/null 2>&1 &
-
-    
-    - name: Configure Docker to allow insecure registry
-      run: |
-        echo '{
-          "insecure-registries" : ["'${MINIKUBE_IP}':5000"]
-        }' | sudo tee /etc/docker/daemon.json
-        sudo systemctl daemon-reload
-        sudo systemctl restart docker
-    
-    - name: Tag and push Docker image for server to Minikube registry
-      run: |
-        docker tag server:latest localhost:5000/server:latest
-        docker push localhost:5000/server:latest
+        docker tag server ghcr.io/${{ github.repository_owner }}/server:latest
+        docker push ghcr.io/${{ github.repository_owner }}/server:latest
         docker images
-    
-    - name: Check Minikube and Cluster status (2)
-      run: |
-        minikube status
-        kubectl get pods -A
-    
-    - name: Install Kubernetes Metrics Server
-      run: |
-        kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-    
-    - name: Replace Minikube IP in Kubernetes manifest
-      run: |
-        sed -i "s/\${MINIKUBE_IP}/${{ env.MINIKUBE_IP }}/g" k8s-manifest.yml
     
     - name: Apply Kubernetes manifest
       run: |

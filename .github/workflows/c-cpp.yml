@@ -79,8 +79,19 @@ jobs:
     
     - name: Check Minikube registry status
       run: |
-        kubectl get svc -n kube-system registry
+        kubectl get pods -n kube-system | grep registry
+        kubectl get svc -n kube-system | grep registry
         
+    - name: Port forward Minikube registry to localhost
+      run: |
+        kubectl port-forward --namespace kube-system svc/registry 5000:5000 &
+        sleep 5  # Give it time to establish the port forwarding
+        
+    - name: Start Minikube tunnel for registry
+      run: |
+        sudo nohup minikube tunnel > /dev/null 2>&1 &
+
+    
     - name: Configure Docker to allow insecure registry
       run: |
         echo '{
@@ -91,8 +102,8 @@ jobs:
     
     - name: Tag and push Docker image for server to Minikube registry
       run: |
-        docker tag server:latest ${MINIKUBE_IP}:5000/server:latest
-        docker push ${MINIKUBE_IP}:5000/server:latest
+        docker tag server:latest localhost:5000/server:latest
+        docker push localhost:5000/server:latest
         docker images
     
     - name: Check Minikube and Cluster status (2)
@@ -103,6 +114,10 @@ jobs:
     - name: Install Kubernetes Metrics Server
       run: |
         kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    
+    - name: Replace Minikube IP in Kubernetes manifest
+      run: |
+        sed -i "s/\${MINIKUBE_IP}/${{ env.MINIKUBE_IP }}/g" k8s-manifest.yml
     
     - name: Apply Kubernetes manifest
       run: |

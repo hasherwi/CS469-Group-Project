@@ -72,11 +72,11 @@ jobs:
     - name: Log in to GitHub Container Registry (GHCR)
       run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
-    - name: Tag and push Docker image to GHCR
+    - name: Push Docker image to GitHub Container Registry
       run: |
-        docker tag server ghcr.io/hasherwi/server:latest
-        docker push ghcr.io/hasherwi/server:latest
-        docker images
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        docker tag server ghcr.io/${{ github.repository_owner }}/server:latest
+        docker push ghcr.io/${{ github.repository_owner }}/server:latest
         
     - name: Create secret for GHCR
       run: |

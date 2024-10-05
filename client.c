@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -37,11 +38,29 @@
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
 
+#include "CommunicationConstants.h"
+#include "playaudio.h"
+
 // Global statics
-#define DEFAULT_PORT        8080
 #define DEFAULT_HOST        "localhost"
 #define MAX_HOSTNAME_LENGTH 256
 #define BUFFER_SIZE         256
+
+void requestAvailableDownloads();
+void searchAvailableDownloads();
+int downloadMP3(char* filename);
+int playMP3(char* filename);
+
+struct SSL_Connection
+{
+  const SSL_METHOD* method;
+  SSL_CTX* ssl_ctx;
+  SSL* ssl;
+  int sockfd;
+  char remote_host[MAX_HOSTNAME_LENGTH];
+  unsigned int port;
+};
+
 
 /**
 * @brief This function does the basic necessary housekeeping to establish a secure TCP
@@ -95,6 +114,67 @@ int create_socket(char* hostname, unsigned int port) {
   return sockfd;
 }
 
+void initialize_connection(struct SSL_Connection *ssl_connection) {
+  // Initialize OpenSSL ciphers and digests
+  OpenSSL_add_all_algorithms();
+
+  // SSL_library_init() registers the available SSL/TLS ciphers and digests.
+  if(SSL_library_init() < 0) {
+    fprintf(stderr, "Client: Could not initialize the OpenSSL library!\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // Use the SSL/TLS method for clients
+  ssl_connection->method = SSLv23_client_method();
+
+  // Create new context instance
+  ssl_connection->ssl_ctx = SSL_CTX_new(ssl_connection->method);
+  if (ssl_connection->ssl_ctx == NULL) {
+    fprintf(stderr, "Unable to create a new SSL context structure.\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // This disables SSLv2, which means only SSLv3 and TLSv1 are available
+  // to be negotiated between client and server
+  SSL_CTX_set_options(ssl_connection->ssl_ctx, SSL_OP_NO_SSLv2);
+
+  // Create a new SSL connection state object
+  ssl_connection->ssl = SSL_new(ssl_connection->ssl_ctx);
+
+  // Create the underlying TCP socket connection to the remote host
+  ssl_connection->sockfd = create_socket(ssl_connection->remote_host, ssl_connection->port);
+  if(ssl_connection->sockfd != 0)
+    fprintf(stderr, "Client: Established TCP connection to '%s' on port %u\n", ssl_connection->remote_host, ssl_connection->port);
+  else {
+    fprintf(stderr, "Client: Could not establish TCP connection to %s on port %u\n", ssl_connection->remote_host, ssl_connection->port);
+    exit(EXIT_FAILURE);
+  }
+
+  // Bind the SSL object to the network socket descriptor. The socket descriptor
+  // will be used by OpenSSL to communicate with a server. This function should
+  // only be called once the TCP connection is established, i.e., after
+  // create_socket()
+  SSL_set_fd(ssl_connection->ssl, ssl_connection->sockfd);
+
+  // Initiates an SSL session over the existing socket connection. SSL_connect()
+  // will return 1 if successful.
+  if (SSL_connect(ssl_connection->ssl) == 1)
+    printf("Client: Established SSL/TLS session to '%s' on port %u\n", ssl_connection->remote_host, ssl_connection->port);
+  else {
+    fprintf(stderr, "Client: Could not establish SSL session to '%s' on port %u\n", ssl_connection->remote_host, ssl_connection->port);
+    exit(EXIT_FAILURE);
+  }
+}
+
+// Deallocate memory for the SSL data structures and close the socket
+void close_ssl_connection(struct SSL_Connection *ssl_connection) {
+    SSL_free(ssl_connection->ssl);
+    SSL_CTX_free(ssl_connection->ssl_ctx);
+    close(ssl_connection->sockfd);
+    printf("Client: Terminated SSL/TLS connection with server '%s'\n",
+	    ssl_connection->remote_host);
+}
+
 /**
 * @brief The sequence of steps required to establish a secure SSL/TLS connection is:
 *
@@ -111,136 +191,135 @@ int create_socket(char* hostname, unsigned int port) {
 * allocated to the SSL object and close the socket descriptor.
 */
 int main(int argc, char** argv) {
-  const SSL_METHOD* method;
-  unsigned int      port = DEFAULT_PORT;
-  char              remote_host[MAX_HOSTNAME_LENGTH];
   char              buffer[BUFFER_SIZE];
+  char              fileName[BUFFER_SIZE];
+  char              operation[5];
+  char              serverError[11];
+  int               serverErrno;
   char*             temp_ptr;
-  int               sockfd;
-  int               writefd;
+  int               writefd = 0;
   int               rcount;
   int               wcount;
-  int               total = 0;
-  SSL_CTX*          ssl_ctx;
-  SSL*              ssl;
+  int               rtotal = 0;
+  int               wtotal = 0;
+  struct            SSL_Connection ssl_connection = {0};
+  // playMP3("./sample-mp3s/Sprouts.mp3");
 
-  if (argc != 3) {
-    fprintf(stderr, "Client: Usage: ssl-client <server name>:<port> <file-name>\n");
+  if (argc != 2) {
+    fprintf(stderr, "Client: Usage: ssl-client <server name>:<port>\n");
     exit(EXIT_FAILURE);
   } else {
     // Search for ':' in the argument to see if port is specified
     temp_ptr = strchr(argv[1], ':');
-    if (temp_ptr == NULL)    // Hostname only. Use default port
-      strncpy(remote_host, argv[1], MAX_HOSTNAME_LENGTH);
-    else {
+    if (temp_ptr == NULL) {    // Hostname only. Use default port
+      strncpy(ssl_connection.remote_host, argv[1], MAX_HOSTNAME_LENGTH);
+      ssl_connection.port = DEFAULT_PORT;
+    } else {
       // Argument is formatted as <hostname>:<port>. Need to separate
       // First, split out the hostname from port, delineated with a colon
       // remote_host will have the <hostname> substring
-      strncpy(remote_host, strtok(argv[1], ":"), MAX_HOSTNAME_LENGTH);
+      strncpy(ssl_connection.remote_host, strtok(argv[1], ":"), MAX_HOSTNAME_LENGTH);
       // Port number will be the substring after the ':'. At this point
       // temp is a pointer to the array element containing the ':'
-      // Check for a valid port number.
-      if (sscanf(temp_ptr + 1, "%u", &port) != 1 || port < 1 || port > 65535) {
-        fprintf(stderr, "Client: Invalid port number. Please provide a port number between 1 and 65535.\n");
-        exit(EXIT_FAILURE);
-      }
+      ssl_connection.port = (unsigned int) atoi(temp_ptr+sizeof(char));
     }
   }
 
-  // Initialize OpenSSL ciphers and digests
-  OpenSSL_add_all_algorithms();
+  initialize_connection(&ssl_connection);
 
-  // SSL_library_init() registers the available SSL/TLS ciphers and digests.
-  if(SSL_library_init() < 0) {
-    fprintf(stderr, "Client: Could not initialize the OpenSSL library!\n");
+ // Read input
+  printf("Client: Please enter the file you want to download: ");
+  bzero(buffer, BUFFER_SIZE);
+  fgets(buffer, BUFFER_SIZE-1, stdin);
+
+  // Remove trailing newline character
+  buffer[strlen(buffer)-1] = '\0';
+  
+  // Pull everything written by user as filename. Filename could include spaces. 
+  sscanf(buffer, "%4s %[^\t\n]", operation, fileName);
+
+  // Write to server
+  wcount = SSL_write(ssl_connection.ssl, buffer, strlen(buffer));
+  if (wcount < 0) {
+    fprintf(stderr, "Client: Could not write message to socket: %s\n",
+	    strerror(errno));
     exit(EXIT_FAILURE);
+  } else {
+    printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
+	   buffer, ssl_connection.remote_host, ssl_connection.port);
   }
 
-  // Use the SSL/TLS method for clients
-  method = SSLv23_client_method();
+  bzero(buffer, BUFFER_SIZE);
 
-  // Create new context instance
-  ssl_ctx = SSL_CTX_new(method);
-  if (ssl_ctx == NULL) {
-    fprintf(stderr, "Unable to create a new SSL context structure.\n");
-    exit(EXIT_FAILURE);
-  }
+  
+  // Recieve from server
+  while ((rcount = SSL_read(ssl_connection.ssl, buffer, BUFFER_SIZE)) > 0 ) {
+    buffer[rcount] = '\0';
 
-  // This disables SSLv2, which means only SSLv3 and TLSv1 are available
-  // to be negotiated between client and server
-  SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_SSLv2);
-
-  // Create a new SSL connection state object
-  ssl = SSL_new(ssl_ctx);
-
-  // Create the underlying TCP socket connection to the remote host
-  sockfd = create_socket(remote_host, port);
-  if(sockfd != 0)
-    fprintf(stderr, "Client: Established TCP connection to '%s' on port %u\n", remote_host, port);
-  else {
-    fprintf(stderr, "Client: Could not establish TCP connection to %s on port %u\n", remote_host, port);
-    exit(EXIT_FAILURE);
-  }
-
-  // Bind the SSL object to the network socket descriptor. The socket descriptor
-  // will be used by OpenSSL to communicate with a server. This function should
-  // only be called once the TCP connection is established, i.e., after
-  // create_socket()
-  SSL_set_fd(ssl, sockfd);
-
-  // Initiates an SSL session over the existing socket connection. SSL_connect()
-  // will return 1 if successful.
-  if (SSL_connect(ssl) == 1)
-    printf("Client: Established SSL/TLS session to '%s' on port %u\n", remote_host, port);
-  else {
-    fprintf(stderr, "Client: Could not establish SSL session to '%s' on port %u\n", remote_host, port);
-    exit(EXIT_FAILURE);
-  }
-
-  //*************************************************************************
-  // YOUR CODE HERE
-  //
-  // You will need to use the SSL_read and SSL_write functions, which work in
-  // the same manner as traditional read and write system calls, but use the
-  // SSL socket descriptor ssl declared above instead of a file descriptor.
-  // ************************************************************************
-
-  int bytes_read;
-  FILE* file;
-  char* filename = argv[2];
-
-  // Send filename to server
-  SSL_write(ssl, filename, strlen(filename));
-
-  // Receive error or success code
-  int result_code;
-  SSL_read(ssl, &result_code, sizeof(result_code));
-  if (result_code != 0) {
-      fprintf(stderr, "Error: %s\n", strerror(result_code));
+    sscanf(buffer, "%10s %d", serverError, &serverErrno);
+    if (strcmp(serverError, "FILEERROR") == 0) {
+      fprintf(stderr, "Client: Server encountered file error: %s\n", strerror(serverErrno));
       exit(EXIT_FAILURE);
-  }
-
-  // Create a local file to save the downloaded data
-  file = fopen(filename, "wb");
-  if (!file) {
-      fprintf(stderr, "Client: Failed to create local file");
+    } else if (strcmp(serverError, "RPCERROR") == 0) {
+      if (serverErrno == -1) {
+        fprintf(stderr, "Client: Server encountered error: Illegal operation -- must be 'copy'\n");
+      }
       exit(EXIT_FAILURE);
+
+    } else if(writefd < 1) { // if a file hasn't been opened for writing
+      // Open file for writing
+      writefd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR); // Open for writing, create if it doesn't exist, overwrite if allowed to
+      if (writefd < 0) {
+        fprintf(stderr, "Client: Could not open file \"%s\" for writing: %s\n", fileName, strerror(errno));
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    wcount = write(writefd, buffer, rcount);
+    if (wcount < 0) {
+      fprintf(stderr, "Client: Error while writing to file \"%s\": %s\n", fileName, strerror(errno));
+    exit(EXIT_FAILURE);
+    }
+
+    // track total bytes written and read
+    rtotal += rcount;
+    wtotal += wcount;
   }
 
-  // Read file data from server and write to local file
-  while ((bytes_read = SSL_read(ssl, buffer, sizeof(buffer))) > 0) {
-      fwrite(buffer, 1, bytes_read, file);
+  if (rcount < 0) {
+        fprintf(stderr, "Error reading from server: %s\n", strerror(errno));
+        return EXIT_FAILURE;
+  } else
+  {
+    printf("Client:\n\tBytes recieved: %d\n\tBytes written: %d\n\n", rtotal, wtotal);
   }
 
-  fclose(file);
-  printf("File '%s' downloaded successfully.\n", filename);
+  close_ssl_connection(&ssl_connection);
 
-  // Deallocate memory for the SSL data structures and close the socket
-  SSL_free(ssl);
-  SSL_CTX_free(ssl_ctx);
-  close(sockfd);
-  printf("Client: Terminated SSL/TLS connection with server '%s'\n",
-	 remote_host);
+  return EXIT_SUCCESS;
+}
+
+void *thread_playMP3(void *arg) {
+  char* fileName = (char *)arg;
+  playAudio(arg);
+  // error check playaudio
+  pthread_exit(NULL);
+}
+
+// Play MP3 file
+int playMP3(char* fileName) {
+  pthread_t ptid;
+  // check that file is proper format
+  // Using threads to make playing audio async so we can await user input to stop
+  pthread_create(&ptid, NULL, &thread_playMP3, fileName);
+  // error check thread creation
+
+  printf("Playing audio from \"%s\" ... Press Enter to stop.\n", fileName); // Include Audio title? Need metadata? Or just display filename
+  // Wait for user to press Enter
+  getchar();
+  printf("Audio stopped.\n");
+
+  pthread_cancel(ptid);
 
   return EXIT_SUCCESS;
 }

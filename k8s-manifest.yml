@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: ghcr.io/${{ github.repository_owner }}/server:latest
+        image: ghcr.io/hasherwi/server:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080

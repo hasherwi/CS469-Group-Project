@@ -74,8 +74,8 @@ jobs:
 
     - name: Tag and push Docker image to GHCR
       run: |
-        docker tag server ghcr.io/${{ github.repository_owner }}/server:latest
-        docker push ghcr.io/${{ github.repository_owner }}/server:latest
+        docker tag server ghcr.io/hasherwi/server:latest
+        docker push ghcr.io/hasherwi/server:latest
         docker images
     
     - name: Apply Kubernetes manifest

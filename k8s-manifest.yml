@@ -27,11 +27,9 @@ spec:
       labels:
         app.kubernetes.io/name: server
     spec:
-      imagePullSecrets:
-      - name: ghcr-secret
       containers:
       - name: server
-        image: ghcr.io/hasherwi/server:latest
+        image: server:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080

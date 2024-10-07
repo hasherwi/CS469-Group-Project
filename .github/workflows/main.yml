@@ -1,6 +1,9 @@
 name: Kubernetes Cluster Main Workflow
 
 on:
+  push:
+    paths:
+      - '.github/workflows/main.yml'
   workflow_run:
     workflows: [Docker Image CI, Kubernetes Manifest Generation from Helm]
     types:

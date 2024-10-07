@@ -4,7 +4,7 @@ on:
   push:
     paths-ignore:
       - '**/*.md'  # Ignore pushes that only change Markdown files
-      - k8s-manifest-no-helm.yaml # Ignore pushes that change an artifact of this workflow.
+      - k8s-manifest-no-helm.yaml # Ignore pushes that change an artifact of a workflow.
 
 jobs:
   build:

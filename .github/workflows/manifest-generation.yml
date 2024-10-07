@@ -1,1 +1,36 @@
+name: Kubernetes Manifest Generation from Helm
+name: Generate and Push Non-Helm Manifest
 
+on:
+  push:
+    paths:
+      - 'server-helm-chart/Chart.yaml'
+      - 'server-helm-chart/values.yaml'
+      - 'server-helm-chart/templates/**'
+
+jobs:
+  generate-manifest:
+    runs-on: ubuntu-latest
+    steps:
+    
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install Helm
+      run: |
+        echo "Installing Helm..."
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+    - name: Generate Kubernetes manifest
+      run: |
+        helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
+
+    - name: Commit and push manifest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      run: |
+        git config --global user.email "harrison.sherwin@gmail.com"
+        git config --global user.name "github-actions[bot]"
+        git add k8s-manifest-no-helm.yaml
+        git commit -m "Add generated Kubernetes manifest file"
+        git push origin main

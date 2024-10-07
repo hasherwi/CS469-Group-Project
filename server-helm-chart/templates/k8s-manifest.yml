@@ -51,8 +51,6 @@ spec:
             cpu: "1"
         # This is a security step in case the container is compromised.
         securityContext:
-          runAsUser: 1000  # Ensure the container runs as non-root user with UID 1000
-          runAsGroup: 1000  # Ensure the container runs as non-root group with GID 1000
           allowPrivilegeEscalation: false  # Prevent privilege escalation
 
 ---

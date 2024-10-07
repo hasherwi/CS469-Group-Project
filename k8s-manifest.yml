@@ -86,7 +86,7 @@ metadata:
   name: server-hpa
   namespace: mp3-server
 spec:
-   # Which resource do we scale.
+   # Which Kubernetes object do we scale.
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

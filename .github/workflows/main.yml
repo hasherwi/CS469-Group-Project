@@ -127,7 +127,7 @@ jobs:
       run: |
         echo "Checking service status..."
         kubectl get svc -n mp3-server
-        minikube service server-service -n mp3-server --url
+        minikube service mp3-server-service -n mp3-server --url
         
     - name: Check HorizontalPodAutoscaler (HPA) status (Helm)
       run: |
@@ -172,7 +172,7 @@ jobs:
       run: |
         echo "Checking service status..."
         kubectl get svc -n mp3-server
-        minikube service server-service -n mp3-server --url
+        minikube service mp3-server-service -n mp3-server --url
         
     - name: Check HorizontalPodAutoscaler (HPA) status (No Helm)
       run: |

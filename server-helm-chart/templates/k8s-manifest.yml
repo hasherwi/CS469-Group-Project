@@ -10,7 +10,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.metadata.namePrefix }}deployment
+  name: {{ .Values.metadata.namePrefix }}-deployment
   namespace: {{ .Values.namespace }}
   labels:
     {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
@@ -59,7 +59,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.metadata.labels.value }}service
+  name: {{ .Values.metadata.labels.value }}-service
   namespace: {{ .Values.namespace }}
   labels:
     {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
@@ -83,7 +83,7 @@ spec:
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ .Values.metadata.labels.value }}hpa
+  name: {{ .Values.metadata.labels.value }}-hpa
   namespace: {{ .Values.namespace }}
   labels:
     {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
@@ -92,7 +92,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ .Values.metadata.labels.value }}deployment
+    name: {{ .Values.metadata.labels.value }}-deployment
   minReplicas: 3  # Minimum number of pods
   maxReplicas: 10  # Maximum number of pods
   targetCPUUtilizationPercentage: 80  # Target X% CPU utilization

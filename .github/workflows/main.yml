@@ -17,23 +17,30 @@ jobs:
     
     - name: Install dependencies
       run: |
+        echo "Installing dependencies..."
         sudo apt-get update
         sudo apt-get install -y libmpg123-dev libao-dev
     
     - name: Run make command
       run: |
+        echo "Making C code..."
         make
       
     - name: Create SSL data
-      run: openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj "/C=US/ST=CO/L=Denver/O=RegisUniversity/OU=CS469/CN=regis.edu/emailAddress=hsherwin@regis.edu"
+      run: |
+        echo "Generating SSL data..."
+        openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj "/C=US/ST=CO/L=Denver/O=RegisUniversity/OU=CS469/CN=regis.edu/emailAddress=hsherwin@regis.edu"
       
     - name: Build Docker image for server
       run: |
+        echo "Building server docker image..."
         docker build -t server .
         docker images
       
     - name: Run a server container
-      run: docker run -d --name test-server -p 8080:8080 server
+      run: |
+        echo "Running a copy of server container..."
+        docker run -d --name test-server -p 8080:8080 server
       
     - name: Check Docker container status
       run: |
@@ -48,15 +55,18 @@ jobs:
     
     - name: Stop and remove Docker container
       run: |
+        echo "Removing server container..."
         docker stop test-server
         docker rm test-server
         
     - name: Save Docker image as tar
       run: |
+        echo "Saving server image as tar..."
         docker save -o server-image.tar server:latest
         
     - name: Install Kubectl
       run: |
+        echo "Installing Kubectl..."
         curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
         chmod +x ./kubectl
         sudo mv ./kubectl /usr/local/bin/kubectl
@@ -68,15 +78,18 @@ jobs:
         
     - name: Lint Helm Chart
       run: |
+        echo "Linting with Helm..."
         helm lint ./server-helm-chart
 
     - name: Install Minikube
       run: |
+        echo "Installing Minikube..."
         curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
         sudo install minikube-linux-amd64 /usr/local/bin/minikube
         
     - name: Start Minikube
       run: |
+        echo "Starting Minikube cluster..."
         minikube start --driver=docker
         
     - name: Tell Minikube to use the Docker environment

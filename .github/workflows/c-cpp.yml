@@ -124,3 +124,10 @@ jobs:
     - name: Check all Kubernetes objects in our namespace
       run: |
         kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server
+    
+    - name: Check most Kubernetes objects in our cluster
+      run: |
+        kubectl get $(kubectl api-resources --namespaced=false --output=name) --all-namespaces -o wide
+        kubectl get $(kubectl api-resources --namespaced=true --output=name) --all-namespaces -o wide
+
+

@@ -99,7 +99,7 @@ jobs:
     - name: Start Minikube Cluster 2
       run: |
         echo "Starting Minikube cluster..."
-        minikube start --driver=docker
+        minikube start --driver=docker --nodes=3
         
     - name: Tell Minikube to use the Docker environment (2)
       run: |

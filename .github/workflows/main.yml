@@ -144,7 +144,7 @@ jobs:
         
     - name: Remove generated manifest objects
       run: |
-        kubectl delete -f k8s-manifest-no-helm.yaml --force --grace-period=30s --timeout=120s
+        kubectl delete -f k8s-manifest-no-helm.yaml --force --grace-period=30 --timeout=120s
     
     - name: Deploy Helm Chart
       run: |

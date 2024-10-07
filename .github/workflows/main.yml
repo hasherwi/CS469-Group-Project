@@ -134,7 +134,7 @@ jobs:
     - name: Check HorizontalPodAutoscaler (HPA) status (Helm)
       run: |
         echo "Checking HPA status..."
-        kubectl get hpa server-hpa -n mp3-server
+        kubectl get hpa mp3-server-hpa -n mp3-server
         
     - name: Check all Kubernetes objects in our namespace (Helm)
       run: |
@@ -179,7 +179,7 @@ jobs:
     - name: Check HorizontalPodAutoscaler (HPA) status (No Helm)
       run: |
         echo "Checking HPA status..."
-        kubectl get hpa server-hpa -n mp3-server
+        kubectl get hpa mp3-server-hpa -n mp3-server
         
     - name: Check all Kubernetes objects in our namespace (No Helm)
       run: |

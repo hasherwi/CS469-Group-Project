@@ -120,3 +120,7 @@ jobs:
       run: |
         echo "Checking HPA status..."
         kubectl get hpa server-hpa -n mp3-server
+        
+    - name: Check all Kubernetes objects in our namespace
+      run: |
+        kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server

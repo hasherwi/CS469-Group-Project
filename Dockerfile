@@ -5,7 +5,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Create a non-root user and group
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+RUN groupadd -r -g 1000 appgroup && useradd -r -u 1000 -g appgroup appuser
 
 # Create a directory for the application
 WORKDIR /app

@@ -125,16 +125,18 @@ jobs:
         done
         kubectl get events -n mp3-server --sort-by='.lastTimestamp'
         
-    - name: Check service status  (Helm)
+    - name: Check service status (Helm)
       run: |
         echo "Checking service status..."
         kubectl get svc -n mp3-server
-        minikube service mp3-server-service -n mp3-server --url
+        SERVICE_NAME=$(kubectl get svc -n mp3-server -o jsonpath='{.items[0].metadata.name}')
+        echo "Service name is: $SERVICE_NAME"
+        minikube service $SERVICE_NAME -n mp3-server --url
         
     - name: Check HorizontalPodAutoscaler (HPA) status (Helm)
       run: |
         echo "Checking HPA status..."
-        kubectl get hpa mp3-server-hpa -n mp3-server
+        kubectl get hpa -n mp3-server
         
     - name: Check all Kubernetes objects in our namespace (Helm)
       run: |
@@ -174,12 +176,14 @@ jobs:
       run: |
         echo "Checking service status..."
         kubectl get svc -n mp3-server
-        minikube service mp3-server-service -n mp3-server --url
+        SERVICE_NAME=$(kubectl get svc -n mp3-server -o jsonpath='{.items[0].metadata.name}')
+        echo "Service name is: $SERVICE_NAME"
+        minikube service $SERVICE_NAME -n mp3-server --url
         
     - name: Check HorizontalPodAutoscaler (HPA) status (No Helm)
       run: |
         echo "Checking HPA status..."
-        kubectl get hpa mp3-server-hpa -n mp3-server
+        kubectl get hpa -n mp3-server
         
     - name: Check all Kubernetes objects in our namespace (No Helm)
       run: |

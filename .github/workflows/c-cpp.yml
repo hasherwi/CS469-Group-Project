@@ -200,4 +200,12 @@ jobs:
           kubectl get "$resource" --all-namespaces -o wide --ignore-not-found || echo "Skipping resource: $resource (not found)"
         done
         kubectl get $(kubectl api-resources --namespaced=true --output=name) --all-namespaces -o wide --ignore-not-found
+        
+    - name: Commit no-helm manifest to repository
+      run: |
+        git config --global user.email "harrison.sherwin@gmail.com"
+        git config --global user.name "github-actions[bot]"
+        git add k8s-manifest-no-helm.yaml
+        git commit -m "Add generated Kubernetes manifest file"
+        git push origin main
 

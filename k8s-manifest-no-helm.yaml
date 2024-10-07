@@ -39,7 +39,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mp3-server
 spec:
-  replicas: 3
+  replicas: 5
   # Selectors tell the Deployment what it created and what to count as a replica.
   selector:
     matchLabels:
@@ -58,7 +58,7 @@ spec:
     # The spec (specification) describes what pod to build.
     spec:
       containers:
-      - name: server
+      - name: mp3-server-container
         # Currently, the image is checked for locally (see below). If missing locally, it goes to Dockerhub where it doesn't exist. We'll change this up later.
         image: server:latest
         # Only download the image, if it's not present on the node already.

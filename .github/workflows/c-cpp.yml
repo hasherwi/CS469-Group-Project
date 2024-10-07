@@ -137,15 +137,6 @@ jobs:
     - name: Check all Kubernetes objects in our namespace (Helm)
       run: |
         kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server
-      
-    - name: Check most Kubernetes objects in our cluster (Helm)
-      run: |
-        NON_NAMESPACED_RESOURCES=$(kubectl api-resources --namespaced=false --output=name)
-        for resource in $NON_NAMESPACED_RESOURCES; do
-          echo "Checking resource: $resource"
-          kubectl get "$resource" --all-namespaces -o wide --ignore-not-found || echo "Skipping resource: $resource (not found)"
-        done
-        kubectl get $(kubectl api-resources --namespaced=true --output=name) --all-namespaces -o wide --ignore-not-found
 
     - name: Remove Helm release
       run: |
@@ -191,15 +182,6 @@ jobs:
     - name: Check all Kubernetes objects in our namespace (No Helm)
       run: |
         kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server
-      
-    - name: Check most Kubernetes objects in our cluster (No Helm)
-      run: |
-        NON_NAMESPACED_RESOURCES=$(kubectl api-resources --namespaced=false --output=name)
-        for resource in $NON_NAMESPACED_RESOURCES; do
-          echo "Checking resource: $resource"
-          kubectl get "$resource" --all-namespaces -o wide --ignore-not-found || echo "Skipping resource: $resource (not found)"
-        done
-        kubectl get $(kubectl api-resources --namespaced=true --output=name) --all-namespaces -o wide --ignore-not-found
         
     - name: Commit no-helm manifest to repository
       run: |

@@ -32,15 +32,14 @@ jobs:
         echo "Generating Kubernetes manifest..."
         helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
         
-    - name: Lint Kubernetes manifest with kubeval
+    - name: Evaluate Kubernetes manifest with kubeval
       run: |
-        echo "Linting Kubernetes manifest..."
+        echo "Evaluating Kubernetes manifest..."
         kubeval k8s-manifest-no-helm.yaml
         
-    - name: Lint Kubernetes manifest with kube-score
+    - name: Score Kubernetes manifest with kube-score
       run: |
-        echo "Linting Kubernetes manifest..."
-        kube-score score k8s-manifest-no-helm.yaml
+        echo "Scoring Kubernetes manifest..."
         docker run --rm -v "$(pwd):/ci" zegl/kube-score:latest score k8s-manifest-no-helm.yaml
 
     - name: Check for manifest changes compared to repo

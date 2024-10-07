@@ -1,5 +1,4 @@
 name: Kubernetes Manifest Generation from Helm
-name: Generate and Push Non-Helm Manifest
 
 on:
   push:

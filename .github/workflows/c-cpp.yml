@@ -62,6 +62,10 @@ jobs:
       run: |
         echo "Installing Helm..."
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        
+    - name: Lint Helm Chart
+      run: |
+        helm lint ./server-helm-chart
 
     - name: Install Minikube
       run: |
@@ -93,9 +97,13 @@ jobs:
       run: |
         kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
     
-    - name: Apply Kubernetes manifest
+    - name: Deploy Helm Chart
       run: |
-        kubectl apply -f k8s-manifest.yml
+        helm upgrade --install server-release ./server-helm-chart
+        
+    - name: Check Helm Release Status
+      run: |
+        helm status server-release --namespace mp3-server
   
     - name: Check pod status and gather debug information for all pods.
       run: |

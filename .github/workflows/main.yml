@@ -105,15 +105,6 @@ jobs:
     - name: Check Minikube status (2)
       run: |
         minikube status
-        
-    - name: Load tar on all Minikube nodes (2)
-      run: |
-        for node in $(kubectl get nodes -o name | cut -d'/' -f 2); do
-          echo "Loading image on $node"
-          minikube cp server-image.tar $node:/server-image.tar
-          minikube ssh -n $node 'docker load -i /server-image.tar'
-          minikube ssh -n $node 'docker images'
-        done
     
     - name: Deploy Helm Chart
       run: |

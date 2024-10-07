@@ -20,13 +20,27 @@ jobs:
         echo "Installing Helm..."
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+    - name: Install Kubelint
+      run: |
+        echo "Installing Kubelint..."
+        curl -LO https://github.com/kris-nova/kubectl-lint/releases/download/v0.1.0/kubectl-lint
+        chmod +x kubectl-lint
+        sudo mv kubectl-lint /usr/local/bin/
+    
     - name: Generate Kubernetes manifest
       run: |
+        echo "Generating Kubernetes manifest..."
         helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
+        
+    - name: Lint Kubernetes manifest with Kubelint
+      run: |
+        echo "Linting Kubernetes manifest..."
+        kubectl-lint k8s-manifest-no-helm.yaml
 
     - name: Check for changes
       id: git_status
       run: |
+        echo "Checking for Kubernetes manifest changes..."
         git add k8s-manifest-no-helm.yaml
         # Check if there are any changes
         if git diff --cached --quiet; then
@@ -42,8 +56,9 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        echo "Pushing Kubernetes manifest changes..."
         git config --global user.email "harrison.sherwin@gmail.com"
         git config --global user.name "github-actions[bot]"
         # Commit and push the changes if any
-        git commit -m "Add generated Kubernetes manifest file"
+        git commit -m "Update generated Kubernetes manifest file"
         git push origin main

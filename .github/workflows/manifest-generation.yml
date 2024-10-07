@@ -29,8 +29,10 @@ jobs:
     - name: Install kube-score
       run: |
         echo "Installing kube-score..."
-        curl -sL https://github.com/zegl/kube-score/releases/latest/download/kube-score_ubuntu_amd64.tar.gz | tar xz
+        curl -L https://github.com/zegl/kube-score/releases/latest/download/kube-score_ubuntu_amd64 -o kube-score
+        chmod +x kube-score
         sudo mv kube-score /usr/local/bin/
+
     
     - name: Generate Kubernetes manifest
       run: |

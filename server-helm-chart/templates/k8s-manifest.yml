@@ -13,13 +13,13 @@ metadata:
   name: server-deployment
   namespace: {{ .Values.namespace }}
   labels:
-    app.kubernetes.io/name: server
+    {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
 spec:
   replicas: 3
   # Selectors tell the Deployment what it created and what to count as a replica.
   selector:
     matchLabels:
-      app.kubernetes.io/name: server
+      {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
   # A strategy tells the Deployment how to update pods.
   strategy:
     type: RollingUpdate
@@ -30,7 +30,7 @@ spec:
     # This needs to match the Selector or the Deployment will make too many replicas.
     metadata:
       labels:
-        app.kubernetes.io/name: server
+        {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
     # The spec (specification) describes what pod to build.
     spec:
       containers:
@@ -61,12 +61,14 @@ kind: Service
 metadata:
   name: server-service
   namespace: {{ .Values.namespace }}
+  labels:
+    {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
 spec:
   # Service types take a long time to grasp. Read the docs on this.
   type: LoadBalancer
   # The selector tells the Service which pods to direct traffic too.
   selector:
-    app.kubernetes.io/name: server
+    {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
   # The port is opened on the service. The target port is where the traffic is directed to on the pod.
   ports:
     - protocol: TCP
@@ -83,6 +85,8 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: server-hpa
   namespace: {{ .Values.namespace }}
+  labels:
+    {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
 spec:
    # Which Kubernetes object do we scale.
   scaleTargetRef:

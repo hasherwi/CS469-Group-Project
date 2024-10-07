@@ -2,4 +2,5 @@ namespace: mp3-server
 metadata:
   name: server-deployment
   labels:
-    app.kubernetes.io/name: server
+    key: app.kubernetes.io/name
+    value: mp3-server

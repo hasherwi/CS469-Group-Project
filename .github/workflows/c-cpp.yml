@@ -141,7 +141,7 @@ jobs:
     - name: Remove Helm release
       run: |
         helm uninstall server-release
-        sleep 10  # Wait for the cluster to stabilize
+        sleep 30  # Wait for the cluster to stabilize
 
     - name: Generate raw Kubernetes manifest from Helm chart
       run: |

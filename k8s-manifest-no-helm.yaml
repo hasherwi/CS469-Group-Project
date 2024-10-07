@@ -1,0 +1,97 @@
+---
+# Source: server-helm-chart/templates/k8s-manifest.yml
+# Create a Kubernetes namespace for the application. This supports isolation and security.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mp3-server
+---
+# Source: server-helm-chart/templates/k8s-manifest.yml
+# A Service creates a single network entry point to multiple pods. It's kind of like a Load Balancer, but more complicated.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mp3-server-service
+  namespace: mp3-server
+  labels:
+    app.kubernetes.io/name: mp3-server
+spec:
+  # Service types take a long time to grasp. Read the docs on this.
+  type: LoadBalancer
+  # The selector tells the Service which pods to direct traffic too.
+  selector:
+    app.kubernetes.io/name: mp3-server
+  # The port is opened on the service. The target port is where the traffic is directed to on the pod.
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  # In short, a sessionAffinity says "I don't care about maintaining long-term connections between the client and the pod.
+  sessionAffinity: None
+---
+# Source: server-helm-chart/templates/k8s-manifest.yml
+# A Deployment ensures multiple copies of a pod are constantly requested.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mp3-server-deployment
+  namespace: mp3-server
+  labels:
+    app.kubernetes.io/name: mp3-server
+spec:
+  replicas: 3
+  # Selectors tell the Deployment what it created and what to count as a replica.
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mp3-server
+  # A strategy tells the Deployment how to update pods.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    # This needs to match the Selector or the Deployment will make too many replicas.
+    metadata:
+      labels:
+        app.kubernetes.io/name: mp3-server
+    # The spec (specification) describes what pod to build.
+    spec:
+      containers:
+      - name: server
+        # Currently, the image is checked for locally (see below). If missing locally, it goes to Dockerhub where it doesn't exist. We'll change this up later.
+        image: server:latest
+        # Only download the image, if it's not present on the node already.
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        # Resources requests are a minimum available. Resource liimits are a maximum.
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "125m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+        # This is a security step in case the container is compromised.
+        securityContext:
+          allowPrivilegeEscalation: false  # Prevent privilege escalation
+---
+# Source: server-helm-chart/templates/k8s-manifest.yml
+# A HorizontalPodAutoscaler adds rules for when to change the replica count of a Deployment, dynamically.
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mp3-server-hpa
+  namespace: mp3-server
+  labels:
+    app.kubernetes.io/name: mp3-server
+spec:
+   # Which Kubernetes object do we scale.
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mp3-server-deployment
+  minReplicas: 3  # Minimum number of pods
+  maxReplicas: 10  # Maximum number of pods
+  targetCPUUtilizationPercentage: 80  # Target X% CPU utilization

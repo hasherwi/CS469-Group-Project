@@ -303,6 +303,12 @@ int main(int argc, char **argv) {
       
       // Read the filename from the client
       bytes_read = SSL_read(ssl, filename, sizeof(filename));
+
+      printf("SERVER RECIEVED: \"%s\"\n", filename);
+      // Terminate the SSL session, close the TCP connection, and clean up
+      printf("Server: Terminating SSL session and TCP connection with client (%s)\n",
+	     client_addr);
+
       if (bytes_read <= 0) {
           fprintf(stderr, "Server: Could not read filename:\n");
           ERR_print_errors_fp(stderr);

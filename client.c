@@ -53,12 +53,6 @@
 #define PLAY_MP3 4
 #define MAX_FILES 50
 
-void requestAvailableDownloads();
-void searchAvailableDownloads();
-int downloadMP3(char* filename);
-int playMP3(char* filename);
-int promptUser();
-void chooseFromDownloadedMP3s(char *fileChoice);
 
 struct SSL_Connection
 {
@@ -69,6 +63,14 @@ struct SSL_Connection
   char remote_host[MAX_HOSTNAME_LENGTH];
   unsigned int port;
 };
+
+
+void requestAvailableDownloads(struct SSL_Connection *ssl_connection);
+void searchAvailableDownloads(struct SSL_Connection *ssl_connection);
+int downloadMP3(struct SSL_Connection *ssl_connection);
+int playMP3(char* filename);
+int promptUser();
+void chooseFromDownloadedMP3s(char *fileChoice);
 
 
 /**
@@ -242,10 +244,13 @@ int main(int argc, char** argv) {
   switch (userChoice)
   {
   case LIST_MP3S:
+    requestAvailableDownloads(&ssl_connection);
     break;
   case SEARCH_MP3S:
+    searchAvailableDownloads(&ssl_connection);
     break;
   case DOWNLOAD_MP3:
+    downloadMP3(&ssl_connection);
     break;
   case 4:
     chooseFromDownloadedMP3s(fileChoice);
@@ -334,6 +339,7 @@ void chooseFromDownloadedMP3s(char *fileChoice) {
             closedir(dp);
             exit(EXIT_FAILURE);
         }
+        if (strstr(ep->d_name, ".mp3") == NULL) { continue; } // Skip anything without mp3 extension
         strcpy(fileNames[fileCount], ep->d_name);  // Copy the file name to the array
         printf("%s\n", ep->d_name);
         fileCount++;
@@ -371,30 +377,65 @@ void chooseFromDownloadedMP3s(char *fileChoice) {
 }
 
 
-int downloadMP3(char* fileName) {
-// Read input
-  // printf("Client: Please enter the file you want to download: ");
-  // bzero(buffer, BUFFER_SIZE);
-  // fgets(buffer, BUFFER_SIZE-1, stdin);
+void requestAvailableDownloads(struct SSL_Connection *ssl_connection) {
+  int wcount;
 
-  // // Remove trailing newline character
+  wcount = SSL_write(ssl_connection->ssl, RPC_LIST_OPERATION, strlen(RPC_LIST_OPERATION));
+  if (wcount < 0) {
+    fprintf(stderr, "Client: Could not write message to socket: %s\n", strerror(errno));
+    exit(EXIT_FAILURE);
+  } else {
+    printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
+    RPC_LIST_OPERATION, ssl_connection->remote_host, ssl_connection->port);
+  }
+}
+
+void searchAvailableDownloads(struct SSL_Connection *ssl_connection) {
+  int wcount;
+  char requestMessage[BUFFER_SIZE];
+
+  sprintf(requestMessage, "%s %s", RPC_SEARCH_OPERATION, "Sprouts");
+  wcount = SSL_write(ssl_connection->ssl, requestMessage, strlen(requestMessage));
+  if (wcount < 0) {
+    fprintf(stderr, "Client: Could not write message to socket: %s\n", strerror(errno));
+    exit(EXIT_FAILURE);
+  } else {
+    printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
+    requestMessage, ssl_connection->remote_host, ssl_connection->port);
+  }
+}
+
+int downloadMP3(struct SSL_Connection *ssl_connection) {
+  char fileName[BUFFER_SIZE];
+  char buffer[BUFFER_SIZE];
+  char request[BUFFER_SIZE];
+  int wcount;
+
+  // Read input
+  printf("Client: Please enter the name of the mp3 you want to download: ");
+  bzero(buffer, BUFFER_SIZE);
+  fgets(buffer, BUFFER_SIZE-1, stdin);
+
+  // Remove trailing newline character
   // buffer[strlen(buffer)-1] = '\0';
   
-  // // Pull everything written by user as filename. Filename could include spaces. 
-  // sscanf(buffer, "%4s %[^\t\n]", operation, fileName);
+  // Pull everything written by user as filename. Filename could include spaces. 
+  sscanf(buffer, "%s", fileName);
 
-  // // Write to server
-  // wcount = SSL_write(ssl_connection.ssl, buffer, strlen(buffer));
-  // if (wcount < 0) {
-  //   fprintf(stderr, "Client: Could not write message to socket: %s\n",
-	//     strerror(errno));
-  //   exit(EXIT_FAILURE);
-  // } else {
-  //   printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
-	//    buffer, ssl_connection.remote_host, ssl_connection.port);
-  // }
+  sprintf(request, "%s %s", RPC_DOWNLOAD_OPERATION, fileName);
 
-  // bzero(buffer, BUFFER_SIZE);
+  // Write to server
+  wcount = SSL_write(ssl_connection->ssl, request, strlen(request));
+  if (wcount < 0) {
+    fprintf(stderr, "Client: Could not write message to socket: %s\n",
+	    strerror(errno));
+    exit(EXIT_FAILURE);
+  } else {
+    printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
+	   request, ssl_connection->remote_host, ssl_connection->port);
+  }
+
+  bzero(buffer, BUFFER_SIZE);
 
   
   // // Recieve from server

@@ -1,10 +1,14 @@
 name: Docker Image CI
-
+  
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    paths:
+      - '.github/workflows/docker-image.yml'
+      - 'sample-mp3s/**'
+      - '**/*.c'
+      - '**/*.h'
+      - 'Dockerfile'
+      - 'Makefile'
 
 jobs:
 
@@ -13,6 +17,66 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Install hadolint
+      run: |
+        docker pull ghcr.io/hadolint/hadolint
+        
+    - name: Run hadolint
+      run: |
+        docker run --rm -i ghcr.io/hadolint/hadolint < Dockerfile
+        
+    - name: Install source code dependencies
+      run: |
+        echo "Installing dependencies..."
+        sudo apt-get update
+        sudo apt-get install -y libmpg123-dev libao-dev
+    
+    - name: Run make command
+      run: |
+        echo "Making C code..."
+        make
+      
+    - name: Create SSL data
+      run: |
+        echo "Generating SSL data..."
+        openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj "/C=US/ST=CO/L=Denver/O=RegisUniversity/OU=CS469/CN=regis.edu/emailAddress=hsherwin@regis.edu"
+    
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      run: |
+        docker build . --file Dockerfile --tag hsherwin/cs469-server:latest
+        
+    - name: Run a server container
+      run: |
+        echo "Running a copy of server container..."
+        docker run -d --name test-server -p 8080:8080 hsherwin/cs469-server:latest
+      
+    - name: Check Docker container status
+      run: |
+        sleep 10  # Wait for the server to stabilize
+        STATUS=$(docker inspect --format='{{.State.Status}}' test-server)
+        if [ "$STATUS" != "running" ]; then
+          echo "Server failed to start, status: $STATUS"
+          exit 1
+        else
+          echo "Server is running, status: $STATUS"
+        fi
+    
+    - name: Stop and remove Docker container
+      run: |
+        echo "Removing server container..."
+        docker stop test-server
+        docker rm test-server
+        
+    - name: Log in to Docker Hub
+      run: |
+        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u hsherwin --password-stdin
+        
+    - name: Push the Docker image
+      run: |
+        docker push hsherwin/cs469-server:latest

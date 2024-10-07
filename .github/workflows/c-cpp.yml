@@ -97,6 +97,7 @@ jobs:
         sleep 10  # Wait for the pods to stabilize
         echo "Checking pod statuses..."
         kubectl get pods -n mp3-server
+
         
     - name: Check pod status and ensure all pods are running
       run: |
@@ -129,5 +130,22 @@ jobs:
       run: |
         kubectl get $(kubectl api-resources --namespaced=false --output=name) --all-namespaces -o wide
         kubectl get $(kubectl api-resources --namespaced=true --output=name) --all-namespaces -o wide
+        
+    - name: Get pods in error state
+      run: |
+        for pod in $(kubectl get pods -n mp3-server --no-headers | awk '$3=="Error" {print $1}'); do
+          echo "Describing pod: $pod"
+          kubectl describe pod $pod -n mp3-server
+          echo "Getting logs for pod: $pod"
+          kubectl logs $pod -n mp3-server
+          node=$(kubectl get pod $pod -n mp3-server -o jsonpath='{.spec.nodeName}')
+          echo "Describing node: $node"
+          kubectl describe node $node
+        done
+
+    - name: Get events
+      run: |
+        kubectl get events -n mp3-server --sort-by='.lastTimestamp'
+
 
 

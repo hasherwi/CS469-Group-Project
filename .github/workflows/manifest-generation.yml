@@ -3,9 +3,9 @@ name: Kubernetes Manifest Generation from Helm
 on:
   push:
     paths:
-      - 'server-helm-chart/Chart.yaml'
-      - 'server-helm-chart/values.yaml'
+      - 'server-helm-chart/**'
       - 'server-helm-chart/templates/**'
+      - '.github/workflows/manifest-generation.yml'
 
 jobs:
   generate-manifest:

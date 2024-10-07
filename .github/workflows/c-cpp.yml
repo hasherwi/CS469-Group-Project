@@ -96,19 +96,14 @@ jobs:
     - name: Apply Kubernetes manifest
       run: |
         kubectl apply -f k8s-manifest.yml
-        
-    - name: Check pod status
+  
+    - name: Check pod status and gather debug information for all pods.
       run: |
         sleep 10  # Wait for the pods to stabilize
         echo "Checking pod statuses..."
-        kubectl get pods -n mp3-server
-  
-    - name: Check pod status and ensure all pods are running. If not, run several debug steps to gather info.
-      run: |
-        echo "Checking if all pods state..."
         echo "Pod statuses:"
         kubectl get pods -n mp3-server
-        for pod in $(kubectl get pods -n mp3-server --no-headers | awk '$3=="Error" {print $1}'); do
+        for pod in $(kubectl get pods -n mp3-server --no-headers -o custom-columns=":metadata.name"); do
           echo "Describing pod: $pod"
           kubectl describe pod $pod -n mp3-server
           echo "Getting logs for pod: $pod"
@@ -136,7 +131,15 @@ jobs:
     
     - name: Check most Kubernetes objects in our cluster
       run: |
-        kubectl get $(kubectl api-resources --namespaced=false --output=name) --all-namespaces -o wide --ignore-not-found
+        - name: Check most Kubernetes objects in our cluster
+      
+    - name: Check most Kubernetes objects in our cluster
+      run: |
+        NON_NAMESPACED_RESOURCES=$(kubectl api-resources --namespaced=false --output=name)
+        for resource in $NON_NAMESPACED_RESOURCES; do
+          echo "Checking resource: $resource"
+          kubectl get "$resource" --all-namespaces -o wide --ignore-not-found || echo "Skipping resource: $resource (not found)"
+        done
         kubectl get $(kubectl api-resources --namespaced=true --output=name) --all-namespaces -o wide --ignore-not-found
 
 

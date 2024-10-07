@@ -145,7 +145,6 @@ jobs:
     - name: Remove generated manifest objects
       run: |
         kubectl delete -f k8s-manifest-no-helm.yaml
-        sleep 60  # Wait for the cluster to stabilize
     
     - name: Deploy Helm Chart
       run: |

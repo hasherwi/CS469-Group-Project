@@ -40,6 +40,7 @@ jobs:
     - name: Score Kubernetes manifest with kube-score
       run: |
         echo "Scoring Kubernetes manifest..."
+        pwd
         docker run --rm -v "$(pwd):/ci" zegl/kube-score:latest score k8s-manifest-no-helm.yaml
 
     - name: Check for manifest changes compared to repo

@@ -24,12 +24,25 @@ jobs:
       run: |
         helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
 
+    - name: Check for changes
+      id: git_status
+      run: |
+        git add k8s-manifest-no-helm.yaml
+        # Check if there are any changes
+        if git diff --cached --quiet; then
+          echo "No changes detected."
+          echo "::set-output name=changes_detected::false"
+        else
+          echo "Changes detected."
+          echo "::set-output name=changes_detected::true"
+        fi
+
     - name: Commit and push manifest
+      if: steps.git_status.outputs.changes_detected == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         git config --global user.email "harrison.sherwin@gmail.com"
         git config --global user.name "github-actions[bot]"
-        git add k8s-manifest-no-helm.yaml
         git commit -m "Add generated Kubernetes manifest file"
         git push origin main

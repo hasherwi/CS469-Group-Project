@@ -104,7 +104,7 @@ jobs:
         
     - name: Check Helm Release Status
       run: |
-        helm status server-release --namespace mp3-server
+        helm status server-release
   
     - name: Check pod status and gather debug information for all pods (Helm)
       run: |

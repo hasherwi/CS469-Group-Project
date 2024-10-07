@@ -20,24 +20,34 @@ jobs:
         echo "Installing Helm..."
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-    - name: Install Kubelint
+    - name: Install kubeval
       run: |
-        echo "Installing Kubelint..."
-        curl -LO https://github.com/kris-nova/kubectl-lint/releases/download/v0.1.0/kubectl-lint
-        chmod +x kubectl-lint-linux-amd64
-        sudo mv kubectl-lint-linux-amd64 /usr/local/bin/kubectl-lint
+        echo "Installing kubeval..."
+        curl -sL https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
+        sudo mv kubeval /usr/local/bin/
+        
+    - name: Install kube-score
+      run: |
+        echo "Installing kube-score..."
+        curl -sL https://github.com/zegl/kube-score/releases/latest/download/kube-score_ubuntu_amd64.tar.gz | tar xz
+        sudo mv kube-score /usr/local/bin/
     
     - name: Generate Kubernetes manifest
       run: |
         echo "Generating Kubernetes manifest..."
         helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
         
-    - name: Lint Kubernetes manifest with Kubelint
+    - name: Lint Kubernetes manifest with kubeval
       run: |
         echo "Linting Kubernetes manifest..."
-        kubectl-lint k8s-manifest-no-helm.yaml
+        kubeval k8s-manifest-no-helm.yaml
+        
+    - name: Lint Kubernetes manifest with kube-score
+      run: |
+        echo "Linting Kubernetes manifest..."
+        kube-score score k8s-manifest-no-helm.yaml
 
-    - name: Check for changes
+    - name: Check for manifest changes compared to repo
       id: git_status
       run: |
         echo "Checking for Kubernetes manifest changes..."

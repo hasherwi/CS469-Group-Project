@@ -80,6 +80,10 @@ jobs:
       run: |
         echo "Linting with Helm..."
         helm lint ./server-helm-chart
+        
+    - name: Generate raw Kubernetes manifest from Helm chart
+      run: |
+        helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
 
     - name: Install Minikube
       run: |
@@ -87,20 +91,20 @@ jobs:
         curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
         sudo install minikube-linux-amd64 /usr/local/bin/minikube
         
-    - name: Start Minikube
+    - name: Start Minikube Cluster 1
       run: |
         echo "Starting Minikube cluster..."
         minikube start --driver=docker
         
-    - name: Tell Minikube to use the Docker environment
+    - name: Tell Minikube to use the Docker environment (1)
       run: |
         eval $(minikube -p minikube docker-env)
     
-    - name: Check Minikube status
+    - name: Check Minikube status (1)
       run: |
         minikube status
         
-    - name: Load tar on all Minikube nodes
+    - name: Load tar on all Minikube nodes (1)
       run: |
         for node in $(kubectl get nodes -o name | cut -d'/' -f 2); do
           echo "Loading image on $node"
@@ -108,14 +112,6 @@ jobs:
           minikube ssh -n $node 'docker load -i /server-image.tar'
           minikube ssh -n $node 'docker images'
         done
-    
-    - name: Install Kubernetes Metrics Server
-      run: |
-        kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-    
-    - name: Generate raw Kubernetes manifest from Helm chart
-      run: |
-        helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
 
     - name: Apply manifest without Helm
       run: |
@@ -155,9 +151,31 @@ jobs:
       run: |
         kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server    
         
-    - name: Remove generated manifest objects
+    - name: Delete Minikube Cluster 1
       run: |
-        kubectl delete -f k8s-manifest-no-helm.yaml --force --grace-period=0 --timeout=300s
+        minikube delete
+        
+    - name: Start Minikube Cluster 2
+      run: |
+        echo "Starting Minikube cluster..."
+        minikube start --driver=docker
+        
+    - name: Tell Minikube to use the Docker environment (2)
+      run: |
+        eval $(minikube -p minikube docker-env)
+    
+    - name: Check Minikube status (2)
+      run: |
+        minikube status
+        
+    - name: Load tar on all Minikube nodes (2)
+      run: |
+        for node in $(kubectl get nodes -o name | cut -d'/' -f 2); do
+          echo "Loading image on $node"
+          minikube cp server-image.tar $node:/server-image.tar
+          minikube ssh -n $node 'docker load -i /server-image.tar'
+          minikube ssh -n $node 'docker images'
+        done
     
     - name: Deploy Helm Chart
       run: |

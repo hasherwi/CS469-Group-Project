@@ -24,8 +24,8 @@ jobs:
       run: |
         echo "Installing Kubelint..."
         curl -LO https://github.com/kris-nova/kubectl-lint/releases/download/v0.1.0/kubectl-lint
-        chmod +x kubectl-lint
-        sudo mv kubectl-lint /usr/local/bin/
+        chmod +x kubectl-lint-linux-amd64
+        sudo mv kubectl-lint-linux-amd64 /usr/local/bin/kubectl-lint
     
     - name: Generate Kubernetes manifest
       run: |

@@ -150,7 +150,9 @@ jobs:
     - name: Check all Kubernetes objects in our namespace (No Helm)
       run: |
         kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server    
-        
+    
+    # I tested a lot. It's faster to delete and recreate the whole cluster than to delete the namespace successfully.
+    
     - name: Delete Minikube Cluster 1
       run: |
         minikube delete

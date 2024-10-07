@@ -30,6 +30,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <dirent.h>
 
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -45,11 +46,19 @@
 #define DEFAULT_HOST        "localhost"
 #define MAX_HOSTNAME_LENGTH 256
 #define BUFFER_SIZE         256
+#define DEFAULT_DOWNLOAD_LOCATION "downloaded-mp3s"
+#define LIST_MP3S 1
+#define SEARCH_MP3S 2
+#define DOWNLOAD_MP3 3
+#define PLAY_MP3 4
+#define MAX_FILES 50
 
 void requestAvailableDownloads();
 void searchAvailableDownloads();
 int downloadMP3(char* filename);
 int playMP3(char* filename);
+int promptUser();
+void chooseFromDownloadedMP3s(char *fileChoice);
 
 struct SSL_Connection
 {
@@ -203,6 +212,8 @@ int main(int argc, char** argv) {
   int               rtotal = 0;
   int               wtotal = 0;
   struct            SSL_Connection ssl_connection = {0};
+  int               userChoice;
+  char*             fileChoice = malloc(BUFFER_SIZE);
   // playMP3("./sample-mp3s/Sprouts.mp3");
 
   if (argc != 2) {
@@ -226,74 +237,25 @@ int main(int argc, char** argv) {
   }
 
   initialize_connection(&ssl_connection);
-
- // Read input
-  printf("Client: Please enter the file you want to download: ");
-  bzero(buffer, BUFFER_SIZE);
-  fgets(buffer, BUFFER_SIZE-1, stdin);
-
-  // Remove trailing newline character
-  buffer[strlen(buffer)-1] = '\0';
   
-  // Pull everything written by user as filename. Filename could include spaces. 
-  sscanf(buffer, "%4s %[^\t\n]", operation, fileName);
-
-  // Write to server
-  wcount = SSL_write(ssl_connection.ssl, buffer, strlen(buffer));
-  if (wcount < 0) {
-    fprintf(stderr, "Client: Could not write message to socket: %s\n",
-	    strerror(errno));
-    exit(EXIT_FAILURE);
-  } else {
-    printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
-	   buffer, ssl_connection.remote_host, ssl_connection.port);
-  }
-
-  bzero(buffer, BUFFER_SIZE);
-
-  
-  // Recieve from server
-  while ((rcount = SSL_read(ssl_connection.ssl, buffer, BUFFER_SIZE)) > 0 ) {
-    buffer[rcount] = '\0';
-
-    sscanf(buffer, "%10s %d", serverError, &serverErrno);
-    if (strcmp(serverError, "FILEERROR") == 0) {
-      fprintf(stderr, "Client: Server encountered file error: %s\n", strerror(serverErrno));
-      exit(EXIT_FAILURE);
-    } else if (strcmp(serverError, "RPCERROR") == 0) {
-      if (serverErrno == -1) {
-        fprintf(stderr, "Client: Server encountered error: Illegal operation -- must be 'copy'\n");
-      }
-      exit(EXIT_FAILURE);
-
-    } else if(writefd < 1) { // if a file hasn't been opened for writing
-      // Open file for writing
-      writefd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR); // Open for writing, create if it doesn't exist, overwrite if allowed to
-      if (writefd < 0) {
-        fprintf(stderr, "Client: Could not open file \"%s\" for writing: %s\n", fileName, strerror(errno));
-        exit(EXIT_FAILURE);
-      }
-    }
-
-    wcount = write(writefd, buffer, rcount);
-    if (wcount < 0) {
-      fprintf(stderr, "Client: Error while writing to file \"%s\": %s\n", fileName, strerror(errno));
-    exit(EXIT_FAILURE);
-    }
-
-    // track total bytes written and read
-    rtotal += rcount;
-    wtotal += wcount;
-  }
-
-  if (rcount < 0) {
-        fprintf(stderr, "Error reading from server: %s\n", strerror(errno));
-        return EXIT_FAILURE;
-  } else
+  userChoice = promptUser();
+  switch (userChoice)
   {
-    printf("Client:\n\tBytes recieved: %d\n\tBytes written: %d\n\n", rtotal, wtotal);
+  case LIST_MP3S:
+    break;
+  case SEARCH_MP3S:
+    break;
+  case DOWNLOAD_MP3:
+    break;
+  case 4:
+    chooseFromDownloadedMP3s(fileChoice);
+    playMP3(fileChoice);
+    break;
+  
+  default:
+    break;
   }
-
+  
   close_ssl_connection(&ssl_connection);
 
   return EXIT_SUCCESS;
@@ -322,4 +284,158 @@ int playMP3(char* fileName) {
   pthread_cancel(ptid);
 
   return EXIT_SUCCESS;
+}
+
+int promptUser() {
+  int choice;
+  char buffer[BUFFER_SIZE];
+  // Print the menu options for the user
+  printf("\nPlease choose from the following options:\n");
+  printf("%d. List available MP3s to download\n", LIST_MP3S);
+  printf("%d. Search MP3s to download\n", SEARCH_MP3S);
+  printf("%d. Download MP3\n", DOWNLOAD_MP3);
+  printf("%d. Play MP3\n", PLAY_MP3);
+
+  // Optionally, prompt the user for input (not part of the original request)
+  
+  printf("Enter your choice (1-4): ");
+  bzero(buffer, BUFFER_SIZE);
+  fgets(buffer, BUFFER_SIZE-1, stdin);
+  // Remove trailing newline character
+  buffer[strlen(buffer)-1] = '\0';
+
+  sscanf(buffer, "%d", &choice);
+  printf("YOUR CHOICE WAS: %d\n", choice);
+  return choice;
+}
+
+void chooseFromDownloadedMP3s(char *fileChoice) {
+  DIR *dp;
+  struct dirent *ep;
+  char downloadLocation[BUFFER_SIZE];
+  char chosenFile[BUFFER_SIZE];
+  char buffer[BUFFER_SIZE];
+  char *fileNames[MAX_FILES];  // Array to hold file names
+  int fileCount = 0;
+  int userChoice;
+
+  sprintf(downloadLocation, "./%s/", DEFAULT_DOWNLOAD_LOCATION); 
+  dp = opendir(downloadLocation);
+  if (dp != NULL) {
+    while ((ep = readdir (dp)) != NULL) {
+      if (strcmp(ep->d_name, ".") == 0 || strcmp(ep->d_name, "..") == 0) {
+        continue; 
+      } 
+      // Add the file name to the array if there's space left
+      if (fileCount < MAX_FILES) {
+        fileNames[fileCount] = malloc(strlen(ep->d_name) + 1);  // Allocate space for the file name
+        if (fileNames[fileCount] == NULL) {
+            perror("Memory allocation failed");
+            closedir(dp);
+            exit(EXIT_FAILURE);
+        }
+        strcpy(fileNames[fileCount], ep->d_name);  // Copy the file name to the array
+        printf("%s\n", ep->d_name);
+        fileCount++;
+      } else {
+        printf("Maximum file limit reached, cannot store more file names.\n");
+        break;
+      }
+          
+    }
+    (void) closedir (dp);
+    
+  } else {
+    perror ("Couldn't open the directory");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("Please Choose From List of Downloaded MP3\n");
+  for (int i = 0; i < fileCount; i++) {
+    printf("%d. %s\n", i+1, fileNames[i]);
+  }
+
+  printf("Type the name or corresponding number (1-%d) of the MP3 you'd like to play or the\n", fileCount);
+  printf("-> ");
+  
+  bzero(buffer, BUFFER_SIZE);
+  fgets(buffer, BUFFER_SIZE-1, stdin);
+
+  if (sscanf(buffer, "%d", &userChoice) > 0 && userChoice <= fileCount) {
+    sprintf(chosenFile, "%s", fileNames[userChoice - 1]);
+  } else {
+    sscanf(buffer, "%s", chosenFile);
+  }
+
+  sprintf(fileChoice, "%s/%s", DEFAULT_DOWNLOAD_LOCATION, chosenFile);
+}
+
+
+int downloadMP3(char* fileName) {
+// Read input
+  // printf("Client: Please enter the file you want to download: ");
+  // bzero(buffer, BUFFER_SIZE);
+  // fgets(buffer, BUFFER_SIZE-1, stdin);
+
+  // // Remove trailing newline character
+  // buffer[strlen(buffer)-1] = '\0';
+  
+  // // Pull everything written by user as filename. Filename could include spaces. 
+  // sscanf(buffer, "%4s %[^\t\n]", operation, fileName);
+
+  // // Write to server
+  // wcount = SSL_write(ssl_connection.ssl, buffer, strlen(buffer));
+  // if (wcount < 0) {
+  //   fprintf(stderr, "Client: Could not write message to socket: %s\n",
+	//     strerror(errno));
+  //   exit(EXIT_FAILURE);
+  // } else {
+  //   printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
+	//    buffer, ssl_connection.remote_host, ssl_connection.port);
+  // }
+
+  // bzero(buffer, BUFFER_SIZE);
+
+  
+  // // Recieve from server
+  // while ((rcount = SSL_read(ssl_connection.ssl, buffer, BUFFER_SIZE)) > 0 ) {
+  //   buffer[rcount] = '\0';
+
+  //   sscanf(buffer, "%10s %d", serverError, &serverErrno);
+  //   if (strcmp(serverError, "FILEERROR") == 0) {
+  //     fprintf(stderr, "Client: Server encountered file error: %s\n", strerror(serverErrno));
+  //     exit(EXIT_FAILURE);
+  //   } else if (strcmp(serverError, "RPCERROR") == 0) {
+  //     if (serverErrno == -1) {
+  //       fprintf(stderr, "Client: Server encountered error: Illegal operation -- must be 'copy'\n");
+  //     }
+  //     exit(EXIT_FAILURE);
+
+  //   } else if(writefd < 1) { // if a file hasn't been opened for writing
+  //     // Open file for writing
+  //     writefd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR); // Open for writing, create if it doesn't exist, overwrite if allowed to
+  //     if (writefd < 0) {
+  //       fprintf(stderr, "Client: Could not open file \"%s\" for writing: %s\n", fileName, strerror(errno));
+  //       exit(EXIT_FAILURE);
+  //     }
+  //   }
+
+  //   wcount = write(writefd, buffer, rcount);
+  //   if (wcount < 0) {
+  //     fprintf(stderr, "Client: Error while writing to file \"%s\": %s\n", fileName, strerror(errno));
+  //   exit(EXIT_FAILURE);
+  //   }
+
+  //   // track total bytes written and read
+  //   rtotal += rcount;
+  //   wtotal += wcount;
+  // }
+
+  // if (rcount < 0) {
+  //       fprintf(stderr, "Error reading from server: %s\n", strerror(errno));
+  //       return EXIT_FAILURE;
+  // } else
+  // {
+  //   printf("Client:\n\tBytes recieved: %d\n\tBytes written: %d\n\n", rtotal, wtotal);
+  // }
 }

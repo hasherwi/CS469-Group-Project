@@ -11,7 +11,7 @@ RUN groupadd -r -g 1000 appgroup && useradd -r -u 1000 -g appgroup appuser
 WORKDIR /app
 
 # Copy the source files into the container
-COPY server cert.pem key.pem /app
+COPY server cert.pem key.pem /app/
 COPY sample-mp3s /app/sample-mp3s
 
 # Change ownership of copied files.

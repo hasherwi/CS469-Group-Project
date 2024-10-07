@@ -15,7 +15,7 @@ metadata:
   labels:
     {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
 spec:
-  replicas: 3
+  replicas: 5
   # Selectors tell the Deployment what it created and what to count as a replica.
   selector:
     matchLabels:
@@ -34,13 +34,13 @@ spec:
     # The spec (specification) describes what pod to build.
     spec:
       containers:
-      - name: server
+      - name: {{ .Values.metadata.namePrefix }}-container
         # Currently, the image is checked for locally (see below). If missing locally, it goes to Dockerhub where it doesn't exist. We'll change this up later.
         image: server:latest
         # Only download the image, if it's not present on the node already.
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 8080
+        - containerPort: {{ .Values.networking.containerPort }}
         # Resources requests are a minimum available. Resource liimits are a maximum.
         resources:
           requests:
@@ -77,7 +77,7 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 8080
+      targetPort: {{ .Values.networking.containerPort }}
   # In short, a sessionAffinity says "I don't care about maintaining long-term connections between the client and the pod.
   sessionAffinity: None
   

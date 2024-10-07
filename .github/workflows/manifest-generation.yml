@@ -22,7 +22,7 @@ jobs:
         chmod +x ./kubectl
         sudo mv ./kubectl /usr/local/bin/kubectl
         
-    - name: Install Krew
+    - name: Install Krew and kube-score
       run: |
         echo "Installing Krew..."
         (
@@ -35,7 +35,12 @@ jobs:
           ./"${KREW}" install krew
         )
         export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
-        kubectl krew
+        echo "Installing kube-score..."
+        kubectl krew install score
+
+    - name: Add Krew to PATH
+      run: echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> ~/.bashrc
+      shell: bash
     
     - name: Install Helm
       run: |
@@ -58,7 +63,6 @@ jobs:
     - name: Scoring Kubernetes manifest with kube-score
       run: |
         echo "Installing kube-score..."
-        kubectl krew install score
         kube-score score k8s-manifest-no-helm.yaml
 
     - name: Check for manifest changes compared to repo

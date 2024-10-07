@@ -100,10 +100,6 @@ jobs:
       run: |
         echo "Starting Minikube cluster..."
         minikube start --driver=docker --nodes=3
-        
-    - name: Tell Minikube to use the Docker environment (2)
-      run: |
-        eval $(minikube -p minikube docker-env)
     
     - name: Check Minikube status (2)
       run: |

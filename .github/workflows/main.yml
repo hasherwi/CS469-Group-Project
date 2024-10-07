@@ -100,6 +100,53 @@ jobs:
       run: |
         kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
     
+    - name: Generate raw Kubernetes manifest from Helm chart
+      run: |
+        helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
+
+    - name: Apply manifest without Helm
+      run: |
+        kubectl apply -f k8s-manifest-no-helm.yaml
+        
+    - name: Check pod status and gather debug information for all pods (No Helm)
+      run: |
+        sleep 10  # Wait for the pods to stabilize
+        echo "Checking pod statuses..."
+        echo "Pod statuses:"
+        kubectl get pods -n mp3-server
+        for pod in $(kubectl get pods -n mp3-server --no-headers -o custom-columns=":metadata.name"); do
+          echo "Describing pod: $pod"
+          kubectl describe pod $pod -n mp3-server
+          echo "Getting logs for pod: $pod"
+          kubectl logs $pod -n mp3-server
+          node=$(kubectl get pod $pod -n mp3-server -o jsonpath='{.spec.nodeName}')
+          echo "Describing node: $node"
+          kubectl describe node $node
+        done
+        kubectl get events -n mp3-server --sort-by='.lastTimestamp'
+        
+    - name: Check service status (No Helm)
+      run: |
+        echo "Checking service status..."
+        kubectl get svc -n mp3-server
+        SERVICE_NAME=$(kubectl get svc -n mp3-server -o jsonpath='{.items[0].metadata.name}')
+        echo "Service name is: $SERVICE_NAME"
+        minikube service $SERVICE_NAME -n mp3-server --url
+        
+    - name: Check HorizontalPodAutoscaler (HPA) status (No Helm)
+      run: |
+        echo "Checking HPA status..."
+        kubectl get hpa -n mp3-server
+        
+    - name: Check all Kubernetes objects in our namespace (No Helm)
+      run: |
+        kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server    
+        
+    - name: Remove generated manifest objects
+      run: |
+        kubectl delete -f k8s-manifest-no-helm.yaml
+        sleep 60  # Wait for the cluster to stabilize
+    
     - name: Deploy Helm Chart
       run: |
         helm upgrade --install server-release ./server-helm-chart
@@ -142,50 +189,7 @@ jobs:
       run: |
         kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server
 
-    - name: Remove Helm release
-      run: |
-        helm uninstall server-release
-        sleep 120  # Wait for the cluster to stabilize
 
-    - name: Generate raw Kubernetes manifest from Helm chart
-      run: |
-        helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
+        
 
-    - name: Apply manifest without Helm
-      run: |
-        kubectl apply -f k8s-manifest-no-helm.yaml
-        
-    - name: Check pod status and gather debug information for all pods (No Helm)
-      run: |
-        sleep 10  # Wait for the pods to stabilize
-        echo "Checking pod statuses..."
-        echo "Pod statuses:"
-        kubectl get pods -n mp3-server
-        for pod in $(kubectl get pods -n mp3-server --no-headers -o custom-columns=":metadata.name"); do
-          echo "Describing pod: $pod"
-          kubectl describe pod $pod -n mp3-server
-          echo "Getting logs for pod: $pod"
-          kubectl logs $pod -n mp3-server
-          node=$(kubectl get pod $pod -n mp3-server -o jsonpath='{.spec.nodeName}')
-          echo "Describing node: $node"
-          kubectl describe node $node
-        done
-        kubectl get events -n mp3-server --sort-by='.lastTimestamp'
-        
-    - name: Check service status (No Helm)
-      run: |
-        echo "Checking service status..."
-        kubectl get svc -n mp3-server
-        SERVICE_NAME=$(kubectl get svc -n mp3-server -o jsonpath='{.items[0].metadata.name}')
-        echo "Service name is: $SERVICE_NAME"
-        minikube service $SERVICE_NAME -n mp3-server --url
-        
-    - name: Check HorizontalPodAutoscaler (HPA) status (No Helm)
-      run: |
-        echo "Checking HPA status..."
-        kubectl get hpa -n mp3-server
-        
-    - name: Check all Kubernetes objects in our namespace (No Helm)
-      run: |
-        kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n mp3-server
 

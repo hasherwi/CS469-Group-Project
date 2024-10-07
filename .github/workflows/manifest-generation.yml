@@ -15,17 +15,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Install Kubectl
+      run: |
+        echo "Installing Kubectl..."
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+        chmod +x ./kubectl
+        sudo mv ./kubectl /usr/local/bin/kubectl
+    
     - name: Install Helm
       run: |
         echo "Installing Helm..."
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-    - name: Install kubeval
-      run: |
-        echo "Installing kubeval..."
-        curl -sL https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
-        sudo mv kubeval /usr/local/bin/
-
     
     - name: Generate Kubernetes manifest
       run: |
@@ -34,13 +34,17 @@ jobs:
         
     - name: Evaluate Kubernetes manifest with kubeval
       run: |
+        echo "Installing kubeval..."
+        curl -sL https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
+        sudo mv kubeval /usr/local/bin/
         echo "Evaluating Kubernetes manifest..."
         kubeval k8s-manifest-no-helm.yaml
         
-    - name: Score Kubernetes manifest with kube-score
+    - name: Scoring Kubernetes manifest with kube-score
       run: |
-        echo "Scoring Kubernetes manifest..."
-        docker run --rm -v "$(pwd):/ci" zegl/kube-score:latest score /home/runner/work/CS469-Group-Project/CS469-Group-Project/k8s-manifest-no-helm.yaml
+        echo "Installing kube-score..."
+        kubectl krew install score
+        kube-score score k8s-manifest-no-helm.yaml
 
     - name: Check for manifest changes compared to repo
       id: git_status

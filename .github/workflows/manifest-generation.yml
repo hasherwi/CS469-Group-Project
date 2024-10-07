@@ -25,11 +25,7 @@ jobs:
         echo "Installing kubeval..."
         curl -sL https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
         sudo mv kubeval /usr/local/bin/
-        
-    - name: Install kube-score
-      run: |
-        echo "Installing kube-score..."
-        brew install kube-score
+
     
     - name: Generate Kubernetes manifest
       run: |
@@ -45,6 +41,7 @@ jobs:
       run: |
         echo "Linting Kubernetes manifest..."
         kube-score score k8s-manifest-no-helm.yaml
+        docker run --rm -v "$(pwd):/ci" zegl/kube-score:latest score k8s-manifest-no-helm.yaml
 
     - name: Check for manifest changes compared to repo
       id: git_status

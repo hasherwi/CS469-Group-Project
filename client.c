@@ -62,6 +62,7 @@ struct SSL_Connection
   int sockfd;
   char remote_host[MAX_HOSTNAME_LENGTH];
   unsigned int port;
+  int connected;
 };
 
 
@@ -175,6 +176,8 @@ void initialize_connection(struct SSL_Connection *ssl_connection) {
     fprintf(stderr, "Client: Could not establish SSL session to '%s' on port %u\n", ssl_connection->remote_host, ssl_connection->port);
     exit(EXIT_FAILURE);
   }
+
+  ssl_connection->connected = 1;
 }
 
 // Deallocate memory for the SSL data structures and close the socket
@@ -182,6 +185,7 @@ void close_ssl_connection(struct SSL_Connection *ssl_connection) {
     SSL_free(ssl_connection->ssl);
     SSL_CTX_free(ssl_connection->ssl_ctx);
     close(ssl_connection->sockfd);
+    ssl_connection->connected = -1;
     printf("Client: Terminated SSL/TLS connection with server '%s'\n",
 	    ssl_connection->remote_host);
 }
@@ -216,7 +220,9 @@ int main(int argc, char** argv) {
   struct            SSL_Connection ssl_connection = {0};
   int               userChoice;
   char*             fileChoice = malloc(BUFFER_SIZE);
-  // playMP3("./sample-mp3s/Sprouts.mp3");
+  
+
+  ssl_connection.connected = -1;
 
   if (argc != 2) {
     fprintf(stderr, "Client: Usage: ssl-client <server name>:<port>\n");
@@ -238,7 +244,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  initialize_connection(&ssl_connection);
+  // initialize_connection(&ssl_connection);
   
   userChoice = promptUser();
   switch (userChoice)
@@ -260,8 +266,10 @@ int main(int argc, char** argv) {
   default:
     break;
   }
-  
-  close_ssl_connection(&ssl_connection);
+
+  if (ssl_connection.connected == 1) {
+    close_ssl_connection(&ssl_connection);
+  }
 
   return EXIT_SUCCESS;
 }
@@ -379,8 +387,13 @@ void chooseFromDownloadedMP3s(char *fileChoice) {
 
 void requestAvailableDownloads(struct SSL_Connection *ssl_connection) {
   int wcount;
+  char request[BUFFER_SIZE];
 
-  wcount = SSL_write(ssl_connection->ssl, RPC_LIST_OPERATION, strlen(RPC_LIST_OPERATION));
+  initialize_connection(ssl_connection);
+
+  sprintf(request, "%s", RPC_LIST_OPERATION);
+
+  wcount = SSL_write(ssl_connection->ssl, request, strlen(request));
   if (wcount < 0) {
     fprintf(stderr, "Client: Could not write message to socket: %s\n", strerror(errno));
     exit(EXIT_FAILURE);
@@ -388,13 +401,16 @@ void requestAvailableDownloads(struct SSL_Connection *ssl_connection) {
     printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
     RPC_LIST_OPERATION, ssl_connection->remote_host, ssl_connection->port);
   }
+
+  close_ssl_connection(ssl_connection);
 }
 
 void searchAvailableDownloads(struct SSL_Connection *ssl_connection) {
   int wcount;
   char requestMessage[BUFFER_SIZE];
-
-  sprintf(requestMessage, "%s %s", RPC_SEARCH_OPERATION, "Sprouts");
+  char searchTerm [] = "Sprouts";
+  initialize_connection(ssl_connection);
+  sprintf(requestMessage, "%s %s", RPC_SEARCH_OPERATION, searchTerm);
   wcount = SSL_write(ssl_connection->ssl, requestMessage, strlen(requestMessage));
   if (wcount < 0) {
     fprintf(stderr, "Client: Could not write message to socket: %s\n", strerror(errno));
@@ -403,13 +419,21 @@ void searchAvailableDownloads(struct SSL_Connection *ssl_connection) {
     printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
     requestMessage, ssl_connection->remote_host, ssl_connection->port);
   }
+  close_ssl_connection(ssl_connection);
 }
 
 int downloadMP3(struct SSL_Connection *ssl_connection) {
   char fileName[BUFFER_SIZE];
   char buffer[BUFFER_SIZE];
   char request[BUFFER_SIZE];
+  char downloadLocation[BUFFER_SIZE];
+  char serverError[BUFFER_SIZE];
   int wcount;
+  int rcount;
+  int writefd;
+  int serverErrno;
+
+  initialize_connection(ssl_connection);
 
   // Read input
   printf("Client: Please enter the name of the mp3 you want to download: ");
@@ -422,7 +446,10 @@ int downloadMP3(struct SSL_Connection *ssl_connection) {
   // Pull everything written by user as filename. Filename could include spaces. 
   sscanf(buffer, "%s", fileName);
 
+  // Build the request
   sprintf(request, "%s %s", RPC_DOWNLOAD_OPERATION, fileName);
+  // Build the download location
+  sprintf(downloadLocation, "%s/%s", DEFAULT_DOWNLOAD_LOCATION, fileName);
 
   // Write to server
   wcount = SSL_write(ssl_connection->ssl, request, strlen(request));
@@ -438,45 +465,49 @@ int downloadMP3(struct SSL_Connection *ssl_connection) {
   bzero(buffer, BUFFER_SIZE);
 
   
-  // // Recieve from server
-  // while ((rcount = SSL_read(ssl_connection.ssl, buffer, BUFFER_SIZE)) > 0 ) {
-  //   buffer[rcount] = '\0';
+  // Recieve from server
+  while ((rcount = SSL_read(ssl_connection->ssl, buffer, BUFFER_SIZE)) > 0 ) {
+    buffer[rcount] = '\0';
 
-  //   sscanf(buffer, "%10s %d", serverError, &serverErrno);
-  //   if (strcmp(serverError, "FILEERROR") == 0) {
-  //     fprintf(stderr, "Client: Server encountered file error: %s\n", strerror(serverErrno));
-  //     exit(EXIT_FAILURE);
-  //   } else if (strcmp(serverError, "RPCERROR") == 0) {
-  //     if (serverErrno == -1) {
-  //       fprintf(stderr, "Client: Server encountered error: Illegal operation -- must be 'copy'\n");
-  //     }
-  //     exit(EXIT_FAILURE);
+    sscanf(buffer, "%10s %d", serverError, &serverErrno);
+    if (strcmp(serverError, ERROR_FILE_ERROR) == 0) {
+      fprintf(stderr, "Client: Server encountered file error: %s\n", strerror(serverErrno));
+      exit(EXIT_FAILURE);
+    } else if (strcmp(serverError, ERROR_RPC_ERROR) == 0) {
+      if (serverErrno == RPC_ERROR_BAD_OPERATION) {
+        fprintf(stderr, "Client: Server encountered error -- 'Bad Operation'\n");
+      } else if (serverErrno == RPC_ERROR_TOO_FEW_ARGS) {
+        fprintf(stderr, "Client: Server encountered error -- 'Too few arguments'\n");
+      } else if (serverErrno == RPC_ERROR_TOO_MANY_ARGS) {
+        fprintf(stderr, "Client: Server encountered error -- 'Too many arguments'\n");
+      }
+      
+      exit(EXIT_FAILURE);
 
-  //   } else if(writefd < 1) { // if a file hasn't been opened for writing
-  //     // Open file for writing
-  //     writefd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR); // Open for writing, create if it doesn't exist, overwrite if allowed to
-  //     if (writefd < 0) {
-  //       fprintf(stderr, "Client: Could not open file \"%s\" for writing: %s\n", fileName, strerror(errno));
-  //       exit(EXIT_FAILURE);
-  //     }
-  //   }
+    } else if(writefd < 1) { // if a file hasn't been opened for writing
+      // Open file for writing
+      writefd = open(downloadLocation, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR); // Open for writing, create if it doesn't exist, overwrite if allowed to
+      if (writefd < 0) {
+        fprintf(stderr, "Client: Could not open file \"%s\" for writing: %s\n", downloadLocation, strerror(errno));
+        exit(EXIT_FAILURE);
+      }
+    }
 
-  //   wcount = write(writefd, buffer, rcount);
-  //   if (wcount < 0) {
-  //     fprintf(stderr, "Client: Error while writing to file \"%s\": %s\n", fileName, strerror(errno));
-  //   exit(EXIT_FAILURE);
-  //   }
+    wcount = write(writefd, buffer, rcount);
+    if (wcount < 0) {
+      fprintf(stderr, "Client: Error while writing to file \"%s\": %s\n", fileName, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+  }
 
-  //   // track total bytes written and read
-  //   rtotal += rcount;
-  //   wtotal += wcount;
-  // }
+  if (rcount < 0) {
+        fprintf(stderr, "Error reading from server: %s\n", strerror(errno));
+        return EXIT_FAILURE;
+  } else
+  {
+    printf("Client:\n\tBytes recieved: %d\n\tBytes written: %d\n\n", 0, 0);
+  }
 
-  // if (rcount < 0) {
-  //       fprintf(stderr, "Error reading from server: %s\n", strerror(errno));
-  //       return EXIT_FAILURE;
-  // } else
-  // {
-  //   printf("Client:\n\tBytes recieved: %d\n\tBytes written: %d\n\n", rtotal, wtotal);
-  // }
+  close_ssl_connection(ssl_connection);
+  return EXIT_SUCCESS;
 }

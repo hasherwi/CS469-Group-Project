@@ -31,6 +31,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <dirent.h>
+#include <ctype.h>
 
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -51,6 +52,8 @@
 #define SEARCH_MP3S 2
 #define DOWNLOAD_MP3 3
 #define PLAY_MP3 4
+#define STOP_MP3 5
+#define QUIT_PROGRAM 0
 #define MAX_FILES 50
 
 
@@ -69,10 +72,14 @@ struct SSL_Connection
 void requestAvailableDownloads(struct SSL_Connection *ssl_connection);
 void searchAvailableDownloads(struct SSL_Connection *ssl_connection);
 int downloadMP3(struct SSL_Connection *ssl_connection);
-int playMP3(char* filename);
+int playMP3(char *fileName, pthread_t *ptid);
 int promptUser();
-void chooseFromDownloadedMP3s(char *fileChoice);
+int chooseFromDownloadedMP3s(char *fileChoice);
+void printDownloadedChoices(char *fileNames[MAX_FILES], int fileCount);
+int stopMP3(pthread_t *ptid);
 
+int *stopPlaying;
+pthread_mutex_t mutexPlaying;
 
 /**
 * @brief This function does the basic necessary housekeeping to establish a secure TCP
@@ -220,7 +227,12 @@ int main(int argc, char** argv) {
   struct            SSL_Connection ssl_connection = {0};
   int               userChoice;
   char*             fileChoice = malloc(BUFFER_SIZE);
-  
+  int               continuePrompting = 1;
+  int               stopFlag = 0;
+  pthread_t         ptid;
+
+  stopPlaying = &stopFlag;
+  pthread_mutex_init(&mutexPlaying, NULL);
 
   ssl_connection.connected = -1;
 
@@ -244,27 +256,36 @@ int main(int argc, char** argv) {
     }
   }
 
-  // initialize_connection(&ssl_connection);
-  
-  userChoice = promptUser();
-  switch (userChoice)
-  {
-  case LIST_MP3S:
-    requestAvailableDownloads(&ssl_connection);
-    break;
-  case SEARCH_MP3S:
-    searchAvailableDownloads(&ssl_connection);
-    break;
-  case DOWNLOAD_MP3:
-    downloadMP3(&ssl_connection);
-    break;
-  case 4:
-    chooseFromDownloadedMP3s(fileChoice);
-    playMP3(fileChoice);
-    break;
-  
-  default:
-    break;
+  while (continuePrompting > 0) {
+    userChoice = promptUser();
+    switch (userChoice)
+    {
+    case LIST_MP3S:
+      requestAvailableDownloads(&ssl_connection);
+      break;
+    case SEARCH_MP3S:
+      searchAvailableDownloads(&ssl_connection);
+      break;
+    case DOWNLOAD_MP3:
+      downloadMP3(&ssl_connection);
+      break;
+    case PLAY_MP3:
+      if (stopFlag == 0) { stopMP3(&ptid); }
+
+      if (chooseFromDownloadedMP3s(fileChoice) == EXIT_SUCCESS) {
+        playMP3(fileChoice, &ptid);
+      }
+      break;
+    case STOP_MP3:
+      stopMP3(&ptid);
+      break;
+    case QUIT_PROGRAM:
+      continuePrompting = -1;
+      break;
+    default:
+      printf("Invalid Choice");
+      break;
+    }
   }
 
   if (ssl_connection.connected == 1) {
@@ -275,26 +296,39 @@ int main(int argc, char** argv) {
 }
 
 void *thread_playMP3(void *arg) {
+
   char* fileName = (char *)arg;
-  playAudio(arg);
+  playAudio(arg, stopPlaying);
   // error check playaudio
   pthread_exit(NULL);
 }
 
+int stopMP3(pthread_t *ptid) {
+    // Signal the playback thread to stop
+    pthread_mutex_lock(&mutexPlaying);
+    *stopPlaying = -1;
+    pthread_mutex_unlock(&mutexPlaying);
+
+    // Wait for the thread to exit gracefully
+    pthread_join(*ptid, NULL);
+
+    printf("Audio stopped.\n");
+    return EXIT_SUCCESS;
+}
+
+
 // Play MP3 file
-int playMP3(char* fileName) {
-  pthread_t ptid;
-  // check that file is proper format
-  // Using threads to make playing audio async so we can await user input to stop
-  pthread_create(&ptid, NULL, &thread_playMP3, fileName);
-  // error check thread creation
+int playMP3(char *fileName, pthread_t *ptid)  {
+  int result;
 
-  printf("Playing audio from \"%s\" ... Press Enter to stop.\n", fileName); // Include Audio title? Need metadata? Or just display filename
-  // Wait for user to press Enter
-  getchar();
-  printf("Audio stopped.\n");
-
-  pthread_cancel(ptid);
+  pthread_mutex_lock(&mutexPlaying);
+  *stopPlaying = 0;
+  pthread_mutex_unlock(&mutexPlaying);
+  result = pthread_create(ptid, NULL, &thread_playMP3, fileName);
+  if (result != 0) {
+        fprintf(stderr, "Error creating playback thread: %s\n", strerror(result));
+        return EXIT_FAILURE;
+  }
 
   return EXIT_SUCCESS;
 }
@@ -308,29 +342,39 @@ int promptUser() {
   printf("%d. Search MP3s to download\n", SEARCH_MP3S);
   printf("%d. Download MP3\n", DOWNLOAD_MP3);
   printf("%d. Play MP3\n", PLAY_MP3);
+  printf("%d. Stop MP3\n", STOP_MP3);
+  printf("%d. Stop Program\n", QUIT_PROGRAM);
 
   // Optionally, prompt the user for input (not part of the original request)
   
-  printf("Enter your choice (1-4): ");
+  printf("Enter your choice (1-5) or 0 to stop: ");
   bzero(buffer, BUFFER_SIZE);
   fgets(buffer, BUFFER_SIZE-1, stdin);
   // Remove trailing newline character
   buffer[strlen(buffer)-1] = '\0';
 
   sscanf(buffer, "%d", &choice);
-  printf("YOUR CHOICE WAS: %d\n", choice);
+  printf("YOUR CHOICE WAS: %d\n\n", choice);
   return choice;
 }
 
-void chooseFromDownloadedMP3s(char *fileChoice) {
+void printDownloadedChoices(char *fileNames[MAX_FILES], int fileCount) {
+  printf("Please Choose From List of Downloaded MP3\n");
+  for (int i = 0; i < fileCount; i++) {
+    printf("%d. %s\n", i+1, fileNames[i]);
+  }
+}
+int chooseFromDownloadedMP3s(char *fileChoice) {
   DIR *dp;
   struct dirent *ep;
   char downloadLocation[BUFFER_SIZE];
   char chosenFile[BUFFER_SIZE];
   char buffer[BUFFER_SIZE];
   char *fileNames[MAX_FILES];  // Array to hold file names
+  int validChoice = -1;
   int fileCount = 0;
   int userChoice;
+  char menuCommand;
 
   sprintf(downloadLocation, "./%s/", DEFAULT_DOWNLOAD_LOCATION); 
   dp = opendir(downloadLocation);
@@ -349,7 +393,6 @@ void chooseFromDownloadedMP3s(char *fileChoice) {
         }
         if (strstr(ep->d_name, ".mp3") == NULL) { continue; } // Skip anything without mp3 extension
         strcpy(fileNames[fileCount], ep->d_name);  // Copy the file name to the array
-        printf("%s\n", ep->d_name);
         fileCount++;
       } else {
         printf("Maximum file limit reached, cannot store more file names.\n");
@@ -364,26 +407,60 @@ void chooseFromDownloadedMP3s(char *fileChoice) {
     exit(EXIT_FAILURE);
   }
 
-  printf("Please Choose From List of Downloaded MP3\n");
-  for (int i = 0; i < fileCount; i++) {
-    printf("%d. %s\n", i+1, fileNames[i]);
-  }
+  printDownloadedChoices(fileNames, fileCount);
 
-  printf("Type the name or corresponding number (1-%d) of the MP3 you'd like to play or the\n", fileCount);
-  printf("-> ");
-  
-  bzero(buffer, BUFFER_SIZE);
-  fgets(buffer, BUFFER_SIZE-1, stdin);
+  while (validChoice < 0) {
+    printf("Type the name or corresponding number (1-%d) of the MP3 you'd like to play\n", fileCount);
+    printf("-- Type \"?\" to list downloaded songs or \"q\" to quit\n");
+    printf("-> ");
+    
+    bzero(buffer, BUFFER_SIZE);
+    fgets(buffer, BUFFER_SIZE-1, stdin);
 
-  if (sscanf(buffer, "%d", &userChoice) > 0 && userChoice <= fileCount) {
-    sprintf(chosenFile, "%s", fileNames[userChoice - 1]);
-  } else {
-    sscanf(buffer, "%s", chosenFile);
+    if (sscanf(buffer, "%d", &userChoice) > 0) {
+      if (userChoice > fileCount || userChoice < 1) { // user choose a number outside of what is available
+        printf("Invalid choice, please choose a number between 1 and %d\n", fileCount);
+        continue;
+      }
+      sprintf(chosenFile, "%s", fileNames[userChoice - 1]);
+      validChoice = 1;
+    } else if (sscanf(buffer, "%c", &menuCommand) > 0) {
+      switch (tolower(menuCommand))
+      {
+      case '?':
+        printDownloadedChoices(fileNames, fileCount);
+        break;
+      
+      case 'q':
+        return EXIT_FAILURE;
+
+      default:
+        printf("Invalid choice, Type \"?\" to list downloaded songs or \"q\" to quit\n");
+        break;
+      }
+    }
+    else {
+      sscanf(buffer, "%s", chosenFile);
+
+      if (strstr(chosenFile, ".mp3") == NULL) {
+        strcat(chosenFile, ".mp3");
+      }
+
+      for (int i = 0; i < fileCount; i++) {
+        if (strcmp(chosenFile, fileNames[i]) == 0) {
+          validChoice = 1;
+          break;
+        }
+        if (i == fileCount - 1) {
+          printf("Invalid choice, file name unknown\n");
+        }
+      }
+    }
   }
 
   sprintf(fileChoice, "%s/%s", DEFAULT_DOWNLOAD_LOCATION, chosenFile);
+  return EXIT_SUCCESS;
 }
-
 
 void requestAvailableDownloads(struct SSL_Connection *ssl_connection) {
   int wcount;

@@ -3,7 +3,7 @@
 
 #define BITS 8
 
-int playAudio(char* fileName) {
+int playAudio(char* fileName, int *stopFlag) {
     mpg123_handle *mh;
     char *buffer;
     size_t buffer_size;
@@ -37,9 +37,9 @@ int playAudio(char* fileName) {
     format.byte_format = AO_FMT_NATIVE;
     format.matrix = 0;
     dev = ao_open_live(driver, &format, NULL);
-
     /* decode and play */
-    while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK)
+    printf("%d ----", *stopFlag);
+    while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK && *stopFlag >= 0)
         ao_play(dev, buffer, done);
 
     /* clean up */

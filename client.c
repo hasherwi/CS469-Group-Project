@@ -55,6 +55,7 @@
 #define STOP_MP3 5
 #define QUIT_PROGRAM 0
 #define MAX_FILES 50
+#define MAX_RETRIES 3
 
 
 struct SSL_Connection
@@ -136,7 +137,7 @@ int create_socket(char* hostname, unsigned int port) {
 void initialize_connection(struct SSL_Connection *ssl_connection) {
   // Initialize OpenSSL ciphers and digests
   OpenSSL_add_all_algorithms();
-
+  printf("\n");
   // SSL_library_init() registers the available SSL/TLS ciphers and digests.
   if(SSL_library_init() < 0) {
     fprintf(stderr, "Client: Could not initialize the OpenSSL library!\n");
@@ -183,7 +184,7 @@ void initialize_connection(struct SSL_Connection *ssl_connection) {
     fprintf(stderr, "Client: Could not establish SSL session to '%s' on port %u\n", ssl_connection->remote_host, ssl_connection->port);
     exit(EXIT_FAILURE);
   }
-
+  printf("\n\n");
   ssl_connection->connected = 1;
 }
 
@@ -229,6 +230,7 @@ int main(int argc, char** argv) {
   char*             fileChoice = malloc(BUFFER_SIZE);
   int               continuePrompting = 1;
   int               stopFlag = 0;
+  int               downloadTries;
   pthread_t         ptid;
 
   stopPlaying = &stopFlag;
@@ -267,7 +269,10 @@ int main(int argc, char** argv) {
       searchAvailableDownloads(&ssl_connection);
       break;
     case DOWNLOAD_MP3:
-      downloadMP3(&ssl_connection);
+      downloadTries = 1;
+      while (downloadMP3(&ssl_connection) != EXIT_SUCCESS && downloadTries <= MAX_RETRIES) {
+        printf("DOWNLOAD FAILED RETRYING -- Try %d of %d\n", downloadTries, MAX_RETRIES);
+      }
       break;
     case PLAY_MP3:
       if (stopFlag == 0) { stopMP3(&ptid); }
@@ -316,7 +321,6 @@ int stopMP3(pthread_t *ptid) {
     return EXIT_SUCCESS;
 }
 
-
 // Play MP3 file
 int playMP3(char *fileName, pthread_t *ptid)  {
   int result;
@@ -342,7 +346,7 @@ int promptUser() {
   printf("%d. Search MP3s to download\n", SEARCH_MP3S);
   printf("%d. Download MP3\n", DOWNLOAD_MP3);
   printf("%d. Play MP3\n", PLAY_MP3);
-  printf("%d. Stop MP3\n", STOP_MP3);
+  printf("%d. Stop MP3\n\n", STOP_MP3);
   printf("%d. Stop Program\n", QUIT_PROGRAM);
 
   // Optionally, prompt the user for input (not part of the original request)
@@ -582,7 +586,7 @@ int downloadMP3(struct SSL_Connection *ssl_connection) {
         return EXIT_FAILURE;
   } else
   {
-    printf("Client:\n\tBytes recieved: %d\n\tBytes written: %d\n\n", 0, 0);
+    printf("Client: Succesfully downloaded file to: %s\n", downloadLocation);
   }
 
   close_ssl_connection(ssl_connection);

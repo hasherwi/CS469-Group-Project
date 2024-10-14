@@ -509,9 +509,9 @@ int downloadMP3(struct SSL_Connection *ssl_connection) {
   char request[BUFFER_SIZE];
   char downloadLocation[BUFFER_SIZE];
   char serverError[BUFFER_SIZE];
+  int writefd = -1;
   int wcount;
   int rcount;
-  int writefd;
   int serverErrno;
 
   initialize_connection(ssl_connection);

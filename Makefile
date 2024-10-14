@@ -16,7 +16,7 @@ endif
 all: client server
 
 client: client.o playaudio.o CommunicationConstants.h
-	$(CC) $(CFLAGS) -o client client.o playaudio.o $(LDFLAGS) $(AUDIOFLAGS)
+	$(CC) $(CFLAGS) -o client client.o playaudio.o $(LDFLAGS) $(AUDIOFLAGS) -lpthread
 
 client.o: client.c playaudio.h
 	$(CC) $(CFLAGS) -c client.c 

@@ -229,7 +229,7 @@ int main(int argc, char** argv) {
   int               userChoice;
   char*             fileChoice = malloc(BUFFER_SIZE);
   int               continuePrompting = 1;
-  int               stopFlag = 0;
+  int               stopFlag = -1;
   int               downloadTries;
   pthread_t         ptid;
 
@@ -282,7 +282,7 @@ int main(int argc, char** argv) {
       }
       break;
     case STOP_MP3:
-      stopMP3(&ptid);
+      if (stopFlag == 0) { stopMP3(&ptid); }
       break;
     case QUIT_PROGRAM:
       continuePrompting = -1;
@@ -379,7 +379,7 @@ int chooseFromDownloadedMP3s(char *fileChoice) {
   int fileCount = 0;
   int userChoice;
   char menuCommand;
-
+  
   sprintf(downloadLocation, "./%s/", DEFAULT_DOWNLOAD_LOCATION); 
   dp = opendir(downloadLocation);
   if (dp != NULL) {

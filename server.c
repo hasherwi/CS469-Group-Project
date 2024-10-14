@@ -33,16 +33,24 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <dirent.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/sha.h>
 
 #include "CommunicationConstants.h"
 
 
 // Global statics
 #define BUFFER_SIZE       256
+#define HASH_SIZE SHA256_DIGEST_LENGTH
 #define CERTIFICATE_FILE  "cert.pem"
 #define KEY_FILE          "key.pem"
+#define MP3_DIR "./sample-mp3s"
+
+void list_files(SSL *ssl);
+void search_files(SSL *ssl, const char *search_term);
+void send_file_with_hash(SSL *ssl, const char *filename);
 
 /**
 * @brief This function does the basic necessary housekeeping to establish TCP connections
@@ -190,6 +198,107 @@ void configure_context(SSL_CTX* ssl_ctx) {
   }
 }
 
+void handle_rpc_request(SSL *ssl) {
+    char buffer[BUFFER_SIZE];
+    char operation[BUFFER_SIZE];
+    char argument[BUFFER_SIZE];
+    char errorMsg[BUFFER_SIZE];
+    int scanned_items;
+
+    SSL_read(ssl, buffer, BUFFER_SIZE);
+    scanned_items = sscanf(buffer, "%s %[^\n]", operation, argument);
+    printf("OPERATION: -%s-\n", operation);
+    printf("ARG: %s\n", argument);
+    printf("ITEMS: %d\n", scanned_items);
+
+    if (scanned_items == 1) {
+      operation[strlen(operation) -1] = '\0';
+    }
+
+    if (scanned_items >= 1) {  // Ensure at least the operation was provided
+        if (strcmp(operation, RPC_LIST_OPERATION) == 0) {
+            list_files(ssl);
+        } else if (strcmp(operation, RPC_SEARCH_OPERATION) == 0 && scanned_items == 2) {
+            search_files(ssl, argument);
+        } else if (strcmp(operation, RPC_DOWNLOAD_OPERATION) == 0 && scanned_items == 2) {
+            send_file_with_hash(ssl, argument);
+        } else {
+            sprintf(errorMsg, "%s %d", ERROR_RPC_ERROR, RPC_ERROR_BAD_OPERATION);
+            SSL_write(ssl, errorMsg, sizeof(errorMsg));
+        }
+    } else {
+        sprintf(errorMsg, "%s %d", ERROR_RPC_ERROR, RPC_ERROR_TOO_FEW_ARGS);
+        SSL_write(ssl, errorMsg, sizeof(errorMsg));
+    }
+}
+
+void list_files(SSL *ssl) {
+    DIR *dir = opendir(MP3_DIR);
+    struct dirent *entry;
+    char fileName[BUFFER_SIZE];
+
+    if (!dir) {
+        fprintf(stderr, "Server: Unable to open mp3 directory: %s\n", strerror(errno));
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG && strstr(entry->d_name, ".mp3")) {
+            sprintf(fileName, "%s\n", entry->d_name);
+            SSL_write(ssl, fileName, strlen(fileName));
+        }
+    }
+
+    closedir(dir);
+}
+
+void search_files(SSL *ssl, const char *search_term) {
+    DIR *dir = opendir(MP3_DIR);
+    struct dirent *entry;
+    char fileName[BUFFER_SIZE];
+
+    if (!dir) {
+        fprintf(stderr, "Server: Unable to open mp3 directory: %s\n", strerror(errno));
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG && strstr(entry->d_name, search_term) && strstr(entry->d_name, ".mp3")) {
+            sprintf(fileName, "%s\n", entry->d_name);
+            SSL_write(ssl, fileName, strlen(fileName));
+        }
+    }
+
+    closedir(dir);
+}
+
+void send_file_with_hash(SSL *ssl, const char *filename) {
+    char filepath[BUFFER_SIZE];
+    snprintf(filepath, sizeof(filepath), "%s/%s", MP3_DIR, filename);
+    FILE *file = fopen(filepath, "rb");
+
+    if (!file) {
+        fprintf(stderr, "Server: Unable to open file: %s\n", strerror(errno));
+        return;
+    }
+
+    unsigned char hash[HASH_SIZE];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+
+    char buffer[BUFFER_SIZE];
+    int bytes;
+    while ((bytes = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
+        SSL_write(ssl, buffer, bytes);
+        SHA256_Update(&sha256, buffer, bytes);
+    }
+
+    SHA256_Final(hash, &sha256);
+    SSL_write(ssl, hash, HASH_SIZE);
+
+    fclose(file);
+}
+
 /**
 @brief The sequence of steps required to establish a secure SSL/TLS connection is:
 *
@@ -249,7 +358,7 @@ int main(int argc, char **argv) {
     int                readfd;
     int                rcount;
     const  char        reply[] = "Hello World!";
-    struct sockaddr_in addr;
+    struct             sockaddr_in addr;
     unsigned int       len = sizeof(addr);
     char               client_addr[INET_ADDRSTRLEN];
 
@@ -287,58 +396,7 @@ int main(int argc, char **argv) {
     } else {
       printf("Server: Established SSL/TLS connection with client (%s)\n",
 	     client_addr);
-
-      // ***********************************************************************
-      // YOUR CODE HERE
-      //
-      // You will need to use the SSL_read and SSL_write functions, which work
-      // in the same manner as traditional read and write system calls, but use
-      // the SSL socket descriptor 'ssl' declared above instead of a file
-      // descriptor.
-      // ***********************************************************************
-
-      char filename[BUFFER_SIZE];
-      char buffer[BUFFER_SIZE];
-      int bytes_read;
-      
-      // Read the filename from the client
-      bytes_read = SSL_read(ssl, filename, sizeof(filename));
-
-      printf("SERVER RECIEVED: \"%s\"\n", filename);
-      // Terminate the SSL session, close the TCP connection, and clean up
-      printf("Server: Terminating SSL session and TCP connection with client (%s)\n",
-	     client_addr);
-
-      if (bytes_read <= 0) {
-          fprintf(stderr, "Server: Could not read filename:\n");
-          ERR_print_errors_fp(stderr);
-          exit(EXIT_FAILURE);
-      }
-
-      filename[bytes_read] = '\0';  // Null-terminate the filename
-
-      // Open the requested file
-      FILE* file = fopen(filename, "rb");
-      if (!file) {
-          int error_code = errno;
-          SSL_write(ssl, &error_code, sizeof(error_code));  // Send error code
-          fprintf(stderr, "Server: Could not open file: %s\n", filename);
-          ERR_print_errors_fp(stderr);
-      }
-      else {
-        int success_code = 0;
-        SSL_write(ssl, &success_code, sizeof(success_code));  // Success
-
-        // Read and send file data in chunks
-        while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-            SSL_write(ssl, buffer, bytes_read);
-        }
-
-        fclose(file);
-
-        // File transfer complete
-        printf("Server: Completed file transfer to client (%s)\n", client_addr);
-      }
+      handle_rpc_request(ssl);
 
       // Terminate the SSL session, close the TCP connection, and clean up
       printf("Server: Terminating SSL session and TCP connection with client (%s)\n",

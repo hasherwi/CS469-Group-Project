@@ -33,6 +33,7 @@
 #include <dirent.h>
 #include <ctype.h>
 
+#include <openssl/sha.h>
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -47,6 +48,7 @@
 #define DEFAULT_HOST        "localhost"
 #define MAX_HOSTNAME_LENGTH 256
 #define BUFFER_SIZE         256
+#define HASH_SIZE SHA256_DIGEST_LENGTH
 #define DEFAULT_DOWNLOAD_LOCATION "downloaded-mp3s"
 #define LIST_MP3S 1
 #define SEARCH_MP3S 2
@@ -70,7 +72,7 @@ struct SSL_Connection
 };
 
 
-void requestAvailableDownloads(struct SSL_Connection *ssl_connection);
+void requestAvailableDownloads(struct SSL_Connection *ssl_connection, const char rpc_operation[9]);
 void searchAvailableDownloads(struct SSL_Connection *ssl_connection);
 int downloadMP3(struct SSL_Connection *ssl_connection);
 int playMP3(char *fileName, pthread_t *ptid);
@@ -263,10 +265,10 @@ int main(int argc, char** argv) {
     switch (userChoice)
     {
     case LIST_MP3S:
-      requestAvailableDownloads(&ssl_connection);
+      requestAvailableDownloads(&ssl_connection, RPC_LIST_OPERATION);
       break;
     case SEARCH_MP3S:
-      searchAvailableDownloads(&ssl_connection);
+      requestAvailableDownloads(&ssl_connection, RPC_SEARCH_OPERATION);
       break;
     case DOWNLOAD_MP3:
       downloadTries = 1;
@@ -466,40 +468,46 @@ int chooseFromDownloadedMP3s(char *fileChoice) {
   return EXIT_SUCCESS;
 }
 
-void requestAvailableDownloads(struct SSL_Connection *ssl_connection) {
+void requestAvailableDownloads(struct SSL_Connection *ssl_connection, const char rpc_operation[9]) {
   int wcount;
+  int rcount;
   char request[BUFFER_SIZE];
+  char buffer[BUFFER_SIZE];
+  int count = 1;
 
   initialize_connection(ssl_connection);
 
-  sprintf(request, "%s", RPC_LIST_OPERATION);
+  if (strcmp(rpc_operation, RPC_SEARCH_OPERATION) == 0) {
+    printf("Client: Please enter a search term: ");
+    fgets(buffer, BUFFER_SIZE-1, stdin);
+
+    sprintf(request, "%s %s", rpc_operation, buffer);
+    
+    bzero(buffer, BUFFER_SIZE);
+  } else {
+    sprintf(request, "%s", rpc_operation);
+  }
+
 
   wcount = SSL_write(ssl_connection->ssl, request, strlen(request));
   if (wcount < 0) {
     fprintf(stderr, "Client: Could not write message to socket: %s\n", strerror(errno));
     exit(EXIT_FAILURE);
   } else {
-    printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
-    RPC_LIST_OPERATION, ssl_connection->remote_host, ssl_connection->port);
+    printf("Client: Successfully sent message \"%s\" to %s on port %u\n\n",
+    request, ssl_connection->remote_host, ssl_connection->port);
   }
 
-  close_ssl_connection(ssl_connection);
-}
-
-void searchAvailableDownloads(struct SSL_Connection *ssl_connection) {
-  int wcount;
-  char requestMessage[BUFFER_SIZE];
-  char searchTerm [] = "Sprouts";
-  initialize_connection(ssl_connection);
-  sprintf(requestMessage, "%s %s", RPC_SEARCH_OPERATION, searchTerm);
-  wcount = SSL_write(ssl_connection->ssl, requestMessage, strlen(requestMessage));
-  if (wcount < 0) {
-    fprintf(stderr, "Client: Could not write message to socket: %s\n", strerror(errno));
-    exit(EXIT_FAILURE);
-  } else {
-    printf("Client: Successfully sent message \"%s\" to %s on port %u\n",
-    requestMessage, ssl_connection->remote_host, ssl_connection->port);
+  while ((rcount = SSL_read(ssl_connection->ssl, buffer, BUFFER_SIZE - 1)) > 0) {
+    buffer[rcount] = '\0';
+    printf("%d. %s", count, buffer);
+    count++;
   }
+  printf("\n");
+  if (rcount < 0)  {
+    fprintf(stderr, "Client: Error reading from searfer: %s\n", strerror(errno));
+  }
+
   close_ssl_connection(ssl_connection);
 }
 
@@ -513,6 +521,8 @@ int downloadMP3(struct SSL_Connection *ssl_connection) {
   int wcount;
   int rcount;
   int serverErrno;
+  SHA256_CTX sha256;
+  SHA256_Init(&sha256);
 
   initialize_connection(ssl_connection);
 
@@ -574,6 +584,7 @@ int downloadMP3(struct SSL_Connection *ssl_connection) {
       }
     }
 
+    SHA256_Update(&sha256, buffer, rcount);
     wcount = write(writefd, buffer, rcount);
     if (wcount < 0) {
       fprintf(stderr, "Client: Error while writing to file \"%s\": %s\n", fileName, strerror(errno));
@@ -581,12 +592,22 @@ int downloadMP3(struct SSL_Connection *ssl_connection) {
     }
   }
 
+  close(writefd);
+
+  char computed_hash[HASH_SIZE];
+  SHA256_Final(computed_hash, &sha256);
+
+  char server_hash[HASH_SIZE];
+  SSL_read(ssl_connection->ssl, server_hash, HASH_SIZE);
+
   if (rcount < 0) {
         fprintf(stderr, "Error reading from server: %s\n", strerror(errno));
         return EXIT_FAILURE;
+  } else if (memcmp(computed_hash, server_hash, HASH_SIZE) == 0) {
+    fprintf(stderr, "Hash mismatch! Download of '%s' may be corrupted.\n", fileName);
   } else
   {
-    printf("Client: Succesfully downloaded file to: %s\n", downloadLocation);
+    printf("Client: Hash verified and succesfully downloaded file to: %s\n", downloadLocation);
   }
 
   close_ssl_connection(ssl_connection);

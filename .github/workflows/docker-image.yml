@@ -60,7 +60,7 @@ jobs:
     - name: Build the Docker image
       run: |
         echo "Building Docker image..."
-        docker build . --file Dockerfile --build-arg PORT=8080 --tag hsherwin/cs469-server:latest .
+        docker build . --file Dockerfile --build-arg PORT=8080 --tag hsherwin/cs469-server:latest
         
     - name: Run a server container
       run: |

@@ -340,7 +340,7 @@ int main(int argc, char **argv) {
     }
     break;
   default:
-    fprintf(stderr, "Usage: ssl-server <port> (optional)\n");
+    fprintf(stderr, "Usage: server <port> (optional)\n");
     exit(EXIT_FAILURE);
   }
 

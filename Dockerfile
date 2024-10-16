@@ -27,4 +27,5 @@ USER appuser
 EXPOSE ${PORT}
 
 # Run the compiled server binary
-CMD ["./server ${PORT}"]
+CMD ["./server"]
+# CMD ["./server ", "${PORT}"]

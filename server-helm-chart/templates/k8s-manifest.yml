@@ -55,6 +55,16 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000  # Ensure the container runs as non-root user with UID 1000
           runAsGroup: 1000  # Ensure the container runs as non-root group with GID 1000
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.networking.containerPort }}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.networking.containerPort }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
 
 
 ---

@@ -58,7 +58,7 @@ jobs:
         
     - name: Check pod status and gather debug information for all pods (No Helm)
       run: |
-        sleep 10  # Wait for the pods to stabilize
+        sleep 30  # Wait for the pods to stabilize
         echo "Checking pod statuses..."
         echo "Pod statuses:"
         kubectl get pods -n mp3-server
@@ -115,7 +115,7 @@ jobs:
   
     - name: Check pod status and gather debug information for all pods (Helm)
       run: |
-        sleep 10  # Wait for the pods to stabilize
+        sleep 30  # Wait for the pods to stabilize
         echo "Checking pod statuses..."
         echo "Pod statuses:"
         kubectl get pods -n mp3-server

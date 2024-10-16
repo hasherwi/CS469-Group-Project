@@ -15,7 +15,7 @@ metadata:
   labels:
     {{ .Values.metadata.labels.key }}: {{ .Values.metadata.labels.value }}
 spec:
-  replicas: 5
+  replicas: {{ .Values.scaling.initialCount }}
   # Selectors tell the Deployment what it created and what to count as a replica.
   selector:
     matchLabels:

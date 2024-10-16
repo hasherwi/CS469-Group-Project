@@ -79,6 +79,16 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000  # Ensure the container runs as non-root user with UID 1000
           runAsGroup: 1000  # Ensure the container runs as non-root group with GID 1000
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
 # Source: server-helm-chart/templates/k8s-manifest.yml
 # A HorizontalPodAutoscaler adds rules for when to change the replica count of a Deployment, dynamically.

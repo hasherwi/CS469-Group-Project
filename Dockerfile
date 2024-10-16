@@ -1,3 +1,6 @@
+# Default arguments.
+ARG PORT=8080
+
 # Use an official Ubuntu image as a base
 FROM ubuntu:22.04
 
@@ -21,7 +24,7 @@ RUN chown -R appuser:appgroup /app
 USER appuser
 
 # Expose the port your server will run on
-EXPOSE 8080
+EXPOSE ${PORT}
 
 # Run the compiled server binary
-CMD ["./server"]
+CMD ["./server", "${PORT}"]

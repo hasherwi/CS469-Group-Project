@@ -23,12 +23,14 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Install hadolint
+    - name: Pull hadolint
       run: |
+        echo "Pulling hadolint..."
         docker pull ghcr.io/hadolint/hadolint
         
     - name: Run hadolint
       run: |
+        echo "Running hadolint..."
         docker run --rm -i ghcr.io/hadolint/hadolint < Dockerfile
         
     - name: Install source code dependencies
@@ -49,6 +51,7 @@ jobs:
     
     - name: Build the Docker image
       run: |
+        echo "Building Docker image..."
         docker build . --file Dockerfile --tag hsherwin/cs469-server:latest
         
     - name: Run a server container
@@ -73,10 +76,43 @@ jobs:
         docker stop test-server
         docker rm test-server
         
-    - name: Log in to Docker Hub
+    - name: Log in to DockerHub
       run: |
+        echo "Accessing DockerHub..."
         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u hsherwin --password-stdin
         
     - name: Push the Docker image
       run: |
+        echo "Pushing image to DockerHub..."
         docker push hsherwin/cs469-server:latest
+    
+    - name: Generate the .tar file
+      run: |
+        echo "Saving image as a .tar file..."
+        docker save -o server-image.tar hsherwin/cs469-server:latest
+    
+    - name: Check for .tar file changes compared to repo
+      id: git_status
+      run: |
+        echo "Checking for Kubernetes manifest changes..."
+        git add server-image.tar
+        # Check if there are any changes
+        if git diff --cached --quiet; then
+          echo "No changes detected."
+          echo "changes_detected=false" >> $GITHUB_ENV
+        else
+          echo "Changes detected."
+          echo "changes_detected=true" >> $GITHUB_ENV
+        fi
+
+    - name: Commit and push .tar file
+      if: env.changes_detected == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "Pushing .tar file changes..."
+        git config --global user.email "harrison.sherwin@gmail.com"
+        git config --global user.name "github-actions[bot]"
+        # Commit and push the changes if any
+        git commit -m "Update generated .tar file with container image"
+        git push origin main

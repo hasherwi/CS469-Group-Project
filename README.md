@@ -48,8 +48,9 @@ UML Diagram:
 - k8s-manifest-no-helm.yaml - Used to describe how to run the server container with Kubernetes. A Kubernetes manifest to deploy the server with no addons used. See: https://kubernetes.io/docs/concepts/workloads/management/
 - playaudio.c - A component of the client code in C language.
 - playaudio.h - A component of the client code in C language.
-- server.c - Server code in C language.
 - server-image.tar - A .tar version of the server Docker image.
+- server.c - Server code in C language.
+
 
 ## How to Run Server
 Options, from lowest to highest level:

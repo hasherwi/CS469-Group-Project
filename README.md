@@ -1,7 +1,6 @@
 # CS469, Group 1, Project
 
 ## Proposal
-
 Members: Corey Brantley, Shen Knoll, Harrison Sherwin
 
 "Build a media server that stores MP3 audio files that can be downloaded and played by a client. The server process should be replicated to provide fault tolerance, but the data does not need to be for this project. The client should be able to request a listing of available audio files then choose one to download. The client must be authenticated using cryptographic methods."
@@ -55,11 +54,13 @@ UML Diagram:
 ## How to Run Server
 Options, from lowest to highest level:
 - Build it from the source code yourself. The files' purposes are listed above. You can even use our Makefile.
+- Use our executable in the executables/ folder.
 - Consume the Docker Image as a .tar file.
 - Consume the Docker Image yourself from Dockerhub. It's available at: hsherwin/cs469-server:latest
 - Download and apply k8s-manifest-no-helm.yaml to your own K8s cluster: kubectl apply -f k8s-manifest-no-helm.yaml
 - Download and install the Helm chart to your own K8s cluster: helm upgrade --install server-release ./server-helm-chart
 
 ## How to Run Client
-
-TODO
+Options, from lowest to highest level:
+- Build it from the source code yourself. The files' purposes are listed above. You can even use our Makefile.
+- Use our executable in the executables/ folder.

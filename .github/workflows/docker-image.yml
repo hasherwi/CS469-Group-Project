@@ -27,6 +27,9 @@ jobs:
       run: |
         echo "Setting up Git Large File Storage (LFS)..."
         git lfs install
+        git lfs track "*.tar"
+        git add .gitattributes
+        git commit -m "Update .gitattributes for LFS" || echo "No changes to commit"
 
     - name: Pull hadolint
       run: |

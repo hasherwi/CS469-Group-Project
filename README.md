@@ -23,35 +23,37 @@ Clients will support the following actions from the user:
 2) Search for MP3 files.
 3) Play a MP3 file.
 
-Source for inspiration for playing back MP3 files: https://hzqtc.github.io/2012/05/play-mp3-with-libmpg123-and-libao.html
+Source of inspiration for playing back MP3 files: https://hzqtc.github.io/2012/05/play-mp3-with-libmpg123-and-libao.html
 
 High Level Architecture Diagram:
-Client > K8s Service (Load Balancer Type)  > Replicated Server Containers
+Client > K8s Service (Load Balancer Type) > Replicated Server Containers
 
 The K8s service and containers will run on nodes of the Kubernetes cluster. Kubernetes cluster architecture is explained here: https://kubernetes.io/docs/concepts/architecture/
 
 UML Diagram:
-
 ![MP3DownloadAndPlay.png](diagrams/MP3DownloadAndPlay.png)
 
-## File Descriptions
-server.c - Server code in C language.\
-client.c - Client code in C language.\
-playaudio.c - A component of the client code in C language.\
+## File & Folder Descriptions
+.github/workflows/ - Test scripts for GitHub Actions\
+diagrams/ - UML Diagrams for Proposal\
+downloaded-mp3s/ - TODO\
+sample-mp3s/ - The MP3s files we're hosting. All royalty free of course.\
+server-helm-chart/ - Provides the files needed to deploy the server application on Kubernetes as as a Helm chart. See: https://helm.sh/docs/
+.gitignore - Ignore this. ;)\
 CommunicationConstants.h - Defines constants to be used in communication between Server and Client.\
-Makefile - Used to compile C code above.\
 Dockerfile - Used to containerize the server code.\
-k8s-manifest.yml - Used to describe how to run the server container with Kubernetes.\
-sample-mp3s/ - Contains MP3 files for the server to hold.
-
-## How to Setup Dev Environment
-
-/TODO/
+Makefile - Used to compile C code above.\
+README.md - This text.
+client.c - Client code in C language.\
+k8s-manifest-no-helm.yaml - Used to describe how to run the server container with Kubernetes. A Kubernetes manifest to deploy the server with no addons used. See: https://kubernetes.io/docs/concepts/workloads/management/\
+playaudio.c - A component of the client code in C language.\
+playaudio.h - A component of the client code in C language.\
+server.c - Server code in C language.\
 
 ## How to Run Server
 
-The server is available here as C source code. In the future, we'll provide an executable, Docker image, and Kubernetes manifest.
+TODO
 
 ## How to Run Client
 
-The client is available here as C source code. In the future, we'll provide an executable.
+TODO

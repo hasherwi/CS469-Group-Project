@@ -34,21 +34,21 @@ UML Diagram:
 ![MP3DownloadAndPlay.png](diagrams/MP3DownloadAndPlay.png)
 
 ## File & Folder Descriptions
-.github/workflows/ - Test scripts for GitHub Actions\
-diagrams/ - UML Diagrams for Proposal\
-downloaded-mp3s/ - TODO\
-sample-mp3s/ - The MP3s files we're hosting. All royalty free of course.\
-server-helm-chart/ - Provides the files needed to deploy the server application on Kubernetes as as a Helm chart. See: https://helm.sh/docs/
-.gitignore - Ignore this. ;)\
-CommunicationConstants.h - Defines constants to be used in communication between Server and Client.\
-Dockerfile - Used to containerize the server code.\
-Makefile - Used to compile C code above.\
-README.md - This text.
-client.c - Client code in C language.\
-k8s-manifest-no-helm.yaml - Used to describe how to run the server container with Kubernetes. A Kubernetes manifest to deploy the server with no addons used. See: https://kubernetes.io/docs/concepts/workloads/management/\
-playaudio.c - A component of the client code in C language.\
-playaudio.h - A component of the client code in C language.\
-server.c - Server code in C language.\
+- .github/workflows/ - Test and Artifact Creation scripts for GitHub Actions.\
+- diagrams/ - UML Diagrams for Proposal.\
+- downloaded-mp3s/ - Dev resource. Do not use.\
+- sample-mp3s/ - The MP3s files we're hosting. All royalty free of course.\
+- server-helm-chart/ - Provides the files needed to deploy the server application on Kubernetes as as a Helm chart. See: https://helm.sh/docs/
+- .gitignore - Ignore this. ;)\
+- CommunicationConstants.h - Defines constants to be used in communication between Server and Client.\
+- Dockerfile - Used to containerize the server code.\
+- Makefile - Used to compile C code above.\
+- README.md - This text.\
+- client.c - Client code in C language.\
+- k8s-manifest-no-helm.yaml - Used to describe how to run the server container with Kubernetes. A Kubernetes manifest to deploy the server with no addons used. See: https://kubernetes.io/docs/concepts/workloads/management/\
+- playaudio.c - A component of the client code in C language.\
+- playaudio.h - A component of the client code in C language.\
+- server.c - Server code in C language.\
 
 ## How to Run Server
 

@@ -1,26 +1,36 @@
-// So far this is just a skeleton from my Assignment 4.
-
 /**
 * @file server.c
-* @author Corey Brantley, Shen Knoll, Harrison Sherwin
+* @authors
+*   Corey Brantley, Shen Knoll, Harrison Sherwin
 * @date  28 September 2024
-* @brief  This program is a small server application that receives incoming TCP
-*         connections from clients and transfers a requested file from the
-*         server to the client.  It uses a secure SSL/TLS connection using
-*         a certificate generated with the openssl application.
+* @brief  This program is a multithreaded server application that listens for incoming TCP
+*         connections from clients, processes requests, and transfers MP3 files to the client.
+*         It uses secure SSL/TLS connections with certificates generated using the openssl 
+*         application. The server can handle multiple clients concurrently using threads, 
+*         ensuring secure file transfers and file integrity verification.
 *
-*          To create a self-signed certificate your server can use, at the
-*          command prompt type:
+*         The server supports the following client operations:
+*          - Listing available MP3 files in the server directory.
+*          - Searching for MP3 files based on a user-provided search term.
+*          - Downloading an MP3 file and sending its SHA-256 hash to the client for verification.
 *
-*          openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem
+*         The SSL/TLS connection ensures that communication between the client and the server
+*         is encrypted and secure. To generate a self-signed certificate and private key that 
+*         the server can use, at the command prompt type:
 *
-*          This will create two files: a private key contained in the file
-*          'key.pem' and a certificate containing a public key in the file
-*          'cert.pem'. Your server will require both in order to operate
-*          properly. These files are not needed by the client.
+*         openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem
 *
-*          Some of the code and descriptions can be found in "Network Security
-*          with OpenSSL", O'Reilly Media, 2002.
+*         This will create two files:
+*          - 'key.pem': A private key.
+*          - 'cert.pem': A self-signed certificate containing a public key.
+*
+*         These files are necessary for the server's SSL/TLS encryption. The client does not
+*         need these files, as they are only used by the server to establish secure connections.
+*
+*         The server supports multiple clients concurrently by spawning a separate thread
+*         for each connection. The server ensures data integrity by computing the SHA-256 
+*         hash of each MP3 file before sending it to the client, allowing the client to 
+*         verify the download.
 */
 
 // Header libraries
@@ -37,381 +47,341 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/sha.h>
+#include <pthread.h>
 
 #include "CommunicationConstants.h"
 
-
-// Global statics
+// Constants to define buffer sizes, certificate file locations, and directory paths
 #define BUFFER_SIZE       256
-#define HASH_SIZE SHA256_DIGEST_LENGTH
+#define HASH_SIZE         SHA256_DIGEST_LENGTH
 #define CERTIFICATE_FILE  "cert.pem"
 #define KEY_FILE          "key.pem"
-#define MP3_DIR "./sample-mp3s"
+#define MP3_DIR           "./sample-mp3s"
 
+// Function declarations
 void list_files(SSL *ssl);
 void search_files(SSL *ssl, const char *search_term);
 void send_file_with_hash(SSL *ssl, const char *filename);
+void *handle_client(void *client_socket);
+void init_openssl();
+void cleanup_openssl();
+SSL_CTX* create_new_context();
+void configure_context(SSL_CTX* ssl_ctx);
+void handle_rpc_request(SSL *ssl);
 
 /**
-* @brief This function does the basic necessary housekeeping to establish TCP connections
-* to the server.  It first creates a new socket, binds the network interface of
-* the machine to that socket, then listens on the socket for incoming TCP
-* connections.
-*/
+ * @brief Creates a TCP socket and binds it to the specified port.
+ *        The server listens for incoming client connections on this socket.
+ * 
+ * @param port - The port number to bind the server to.
+ * @return Socket descriptor to be used for communication.
+ */
 int create_socket(unsigned int port) {
-  int    s;
-  struct sockaddr_in addr;
+    int s;
+    struct sockaddr_in addr;
+    
+    // Set up the socket address structure for IPv4 and bind to the given port
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port); // Convert port number to network byte order
+    addr.sin_addr.s_addr = htonl(INADDR_ANY); // Bind to all available interfaces
 
-  // First we set up a network socket. An IP socket address is a combination
-  // of an IP interface address plus a 16-bit port number. The struct field
-  // sin_family is *always* set to AF_INET. Anything else returns an error.
-  // The TCP port is stored in sin_port, but needs to be converted to the
-  // format on the host machine to network byte order, which is why htons()
-  // is called. Setting s_addr to INADDR_ANY binds the socket and listen on
-  // any available network interface on the machine, so clients can connect
-  // through any, e.g., external network interface, localhost, etc.
-
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(port);
-  addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-  // Create a socket (endpoint) for network communication.  The socket()
-  // call returns a socket descriptor, which works exactly like a file
-  // descriptor for file system operations we worked with in CS431
-  //
-  // Sockets are by default blocking, so the server will block while reading
-  // from or writing to a socket. For most applications this is acceptable.
-  s = socket(AF_INET, SOCK_STREAM, 0);
-  if (s < 0) {
-    fprintf(stderr, "Server: Unable to create socket: %s", strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  // When you create a socket, it exists within a namespace, but does not have
-  // a network address associated with it.  The bind system call creates the
-  // association between the socket and the network interface.
-  //
-  // An error could result from an invalid socket descriptor, an address already
-  // in use, or an invalid network address
-  if (bind(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-    fprintf(stderr, "Server: Unable to bind to socket: %s", strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  // Listen for incoming TCP connections using the newly created and configured
-  // socket. The second argument (1) indicates the number of pending connections
-  // allowed, which in this case is one.  That means if the server is connected
-  // to one client, a second client attempting to connect may receive an error,
-  // e.g., connection refused.
-  //
-  // Failure could result from an invalid socket descriptor or from using a
-  // socket descriptor that is already in use.
-  if (listen(s, 1) < 0) {
-    fprintf(stderr, "Server: Unable to listen: %s", strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  printf("Server: Listening on TCP port %u\n", port);
-
-  return s;
-}
-
-/**
-* @brief This function does some initialization of the OpenSSL library functions used in
-*        this program.  The function SSL_load_error_strings registers the error strings
-*        for all of the libssl and libcrypto functions so that appropriate textual error
-*        messages are displayed when error conditions arise. OpenSSL_add_ssl_algorithms
-*        registers the available SSL/TLS ciphers and digests used for encryption.
-*/
-void init_openssl() {
-  SSL_load_error_strings();
-  OpenSSL_add_ssl_algorithms();
-}
-
-/**
-* @brief EVP_cleanup removes all of the SSL/TLS ciphers and digests registered earlier.
-*/
-void cleanup_openssl() {
-  EVP_cleanup();
-}
-
-/**
-* @brief An SSL_CTX object is an instance of a factory design pattern that produces SSL
-*        connection objects, each called a context. A context is used to set parameters
-*        for the connection, and in this program, each context is configured using the
-*        configure_context() function below. Each context object is created using the
-*        function SSL_CTX_new(), and the result of that call is what is returned by this
-*        function and subsequently configured with connection information.
-*
-*        One other thing to point out is when creating a context, the SSL protocol must
-*        be specified ahead of time using an instance of an SSL_method object.  In this
-*        case, we are creating an instance of an SSLv23_server_method, which is an
-*        SSL_METHOD object for an SSL/TLS server. Of the available types in the OpenSSL
-*        library, this provides the most functionality.
-*/
-SSL_CTX* create_new_context() {
-  const SSL_METHOD* ssl_method; // This should be declared 'const' to avoid
-                                // getting a compiler warning about the call to
-                                // SSLv23_server_method()
-  SSL_CTX*          ssl_ctx;
-
-  // Use SSL/TLS method for server
-  ssl_method = SSLv23_server_method();
-
-  // Create new context instance
-  ssl_ctx = SSL_CTX_new(ssl_method);
-  if (ssl_ctx == NULL) {
-    fprintf(stderr, "Server: cannot create SSL context:\n");
-    ERR_print_errors_fp(stderr);
-    exit(EXIT_FAILURE);
-  }
-
-  return ssl_ctx;
-}
-
-/**
-* @brief We will use Elliptic Curve Diffie Hellman anonymous key agreement protocol for
-*        the session key shared between client and server.  We first configure the SSL
-*        context to use that protocol by calling the function SSL_CTX_set_ecdh_auto().
-*        The second argument (onoff) tells the function to automatically use the highest
-*        preference curve (supported by both client and server) for the key agreement.
-*
-*        Note that for error conditions specific to SSL/TLS, the OpenSSL library does
-*        not set the variable errno, so we must use the built-in error printing routines.
-*/
-void configure_context(SSL_CTX* ssl_ctx) {
-  SSL_CTX_set_ecdh_auto(ssl_ctx, 1);
-
-  // Set the certificate to use, i.e., 'cert.pem'
-  if (SSL_CTX_use_certificate_file(ssl_ctx, CERTIFICATE_FILE, SSL_FILETYPE_PEM)
-      <= 0) {
-    fprintf(stderr, "Server: cannot set certificate:\n");
-    ERR_print_errors_fp(stderr);
-    exit(EXIT_FAILURE);
-  }
-
-  // Set the private key contained in the key file, i.e., 'key.pem'
-  if (SSL_CTX_use_PrivateKey_file(ssl_ctx, KEY_FILE, SSL_FILETYPE_PEM) <= 0 ) {
-    fprintf(stderr, "Server: cannot set certificate:\n");
-    ERR_print_errors_fp(stderr);
-    exit(EXIT_FAILURE);
-  }
-}
-
-void handle_rpc_request(SSL *ssl) {
-    char buffer[BUFFER_SIZE];
-    char operation[BUFFER_SIZE];
-    char argument[BUFFER_SIZE];
-    char errorMsg[BUFFER_SIZE];
-    int scanned_items;
-
-    SSL_read(ssl, buffer, BUFFER_SIZE);
-    scanned_items = sscanf(buffer, "%s %[^\n]", operation, argument);
-    printf("OPERATION: -%s-\n", operation);
-    printf("ARG: %s\n", argument);
-    printf("ITEMS: %d\n", scanned_items);
-
-    if (scanned_items == 1) {
-      operation[strlen(operation) -1] = '\0';
+    // Create the socket using IPv4 (AF_INET) and TCP (SOCK_STREAM)
+    s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s < 0) {
+        perror("Unable to create socket"); // Error if socket creation fails
+        exit(EXIT_FAILURE);
     }
 
-    if (scanned_items >= 1) {  // Ensure at least the operation was provided
+    // Bind the socket to the specified port and network interface
+    if (bind(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("Unable to bind to socket");
+        exit(EXIT_FAILURE);
+    }
+
+    // Set the socket to listen for incoming connections with a backlog of 5 clients
+    if (listen(s, 5) < 0) {
+        perror("Unable to listen");
+        exit(EXIT_FAILURE);
+    }
+
+    return s; // Return the socket descriptor
+}
+
+/**
+ * @brief Initialize the OpenSSL library, which will be used for creating
+ *        secure SSL/TLS connections with clients.
+ */
+void init_openssl() {
+    SSL_load_error_strings(); // Load SSL error strings for better debugging
+    OpenSSL_add_ssl_algorithms(); // Initialize the SSL algorithms and ciphers
+}
+
+/**
+ * @brief Cleanup OpenSSL resources, freeing any memory and unloading SSL algorithms.
+ */
+void cleanup_openssl() {
+    EVP_cleanup(); // Free SSL resources used during the program execution
+}
+
+/**
+ * @brief Create a new SSL context to manage the SSL settings for the server.
+ *        This context will be used to create secure connections with clients.
+ * 
+ * @return The initialized SSL_CTX object.
+ */
+SSL_CTX* create_new_context() {
+    const SSL_METHOD* method;
+    SSL_CTX* ctx;
+
+    // Use the SSLv23 server method to provide SSL/TLS functionality
+    method = SSLv23_server_method();
+    ctx = SSL_CTX_new(method); // Create a new SSL context
+
+    // If context creation fails, print error and exit
+    if (!ctx) {
+        perror("Unable to create SSL context");
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    return ctx; // Return the created SSL context
+}
+
+/**
+ * @brief Configure the SSL context with the server's certificate and private key.
+ *        This ensures that SSL/TLS encryption is properly set up for the server.
+ * 
+ * @param ctx - The SSL_CTX object to configure.
+ */
+void configure_context(SSL_CTX* ctx) {
+    SSL_CTX_set_ecdh_auto(ctx, 1); // Automatically select the best elliptic curve
+
+    // Load the server's certificate for SSL/TLS
+    if (SSL_CTX_use_certificate_file(ctx, CERTIFICATE_FILE, SSL_FILETYPE_PEM) <= 0) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    // Load the private key corresponding to the server's certificate
+    if (SSL_CTX_use_PrivateKey_file(ctx, KEY_FILE, SSL_FILETYPE_PEM) <= 0 ) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+}
+
+/**
+ * @brief Handle each client connection in a separate thread.
+ *        This function sets up SSL/TLS for the connection and processes client requests.
+ * 
+ * @param client_socket - The socket descriptor for the client connection.
+ */
+void *handle_client(void *client_socket) {
+    int client = *(int*)client_socket;
+    free(client_socket); // Free the dynamically allocated client socket
+
+    // Create and configure SSL context for the new client connection
+    SSL_CTX* ctx = create_new_context();
+    configure_context(ctx);
+
+    // Create new SSL object and bind it to the client socket
+    SSL *ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, client);
+
+    // Perform the SSL handshake with the client
+    if (SSL_accept(ssl) <= 0) {
+        ERR_print_errors_fp(stderr); // Log any SSL handshake errors
+    } else {
+        // Process the client's request (e.g., list files, search, download)
+        handle_rpc_request(ssl);
+    }
+
+    // Cleanup the SSL connection and close the client socket
+    SSL_free(ssl);
+    close(client);
+    SSL_CTX_free(ctx); // Free SSL context for this connection
+
+    pthread_exit(NULL); // Exit the thread when done
+}
+
+/**
+ * @brief Process and handle client RPC requests. Based on the request, it performs
+ *        operations like listing available MP3 files, searching for files, or
+ *        downloading a file with its hash.
+ * 
+ * @param ssl - The SSL object used for secure communication with the client.
+ */
+void handle_rpc_request(SSL *ssl) {
+    char buffer[BUFFER_SIZE]; // Buffer to store client request
+    char operation[BUFFER_SIZE]; // Buffer for the operation (LIST, SEARCH, etc.)
+    char argument[BUFFER_SIZE]; // Buffer for any arguments (e.g., filename or search term)
+    char errorMsg[BUFFER_SIZE]; // Buffer for error messages
+    int scanned_items;
+
+    // Read the client's request via SSL
+    SSL_read(ssl, buffer, BUFFER_SIZE);
+
+    // Parse the operation and arguments from the request
+    scanned_items = sscanf(buffer, "%s %[^\n]", operation, argument);
+
+    // Handle LIST operation (no arguments required)
+    if (scanned_items == 1) {
         if (strcmp(operation, RPC_LIST_OPERATION) == 0) {
-            list_files(ssl);
-        } else if (strcmp(operation, RPC_SEARCH_OPERATION) == 0 && scanned_items == 2) {
-            search_files(ssl, argument);
-        } else if (strcmp(operation, RPC_DOWNLOAD_OPERATION) == 0 && scanned_items == 2) {
-            send_file_with_hash(ssl, argument);
+            list_files(ssl); // Send a list of available MP3 files to the client
         } else {
+            // If operation is missing arguments, send an error to the client
+            sprintf(errorMsg, "%s %d", ERROR_RPC_ERROR, RPC_ERROR_TOO_FEW_ARGS);
+            SSL_write(ssl, errorMsg, sizeof(errorMsg));
+        }
+    } else if (scanned_items == 2) { // If operation has an argument (SEARCH or DOWNLOAD)
+        if (strcmp(operation, RPC_SEARCH_OPERATION) == 0) {
+            search_files(ssl, argument); // Search for files matching the search term
+        } else if (strcmp(operation, RPC_DOWNLOAD_OPERATION) == 0) {
+            send_file_with_hash(ssl, argument); // Send the requested file to the client
+        } else {
+            // If operation is invalid, send an error to the client
             sprintf(errorMsg, "%s %d", ERROR_RPC_ERROR, RPC_ERROR_BAD_OPERATION);
             SSL_write(ssl, errorMsg, sizeof(errorMsg));
         }
     } else {
+        // If request is poorly formed, send an error response
         sprintf(errorMsg, "%s %d", ERROR_RPC_ERROR, RPC_ERROR_TOO_FEW_ARGS);
         SSL_write(ssl, errorMsg, sizeof(errorMsg));
     }
 }
 
+/**
+ * @brief List all available MP3 files in the MP3 directory and send the list
+ *        to the client over the secure SSL connection.
+ * 
+ * @param ssl - The SSL object used for secure communication.
+ */
 void list_files(SSL *ssl) {
-    DIR *dir = opendir(MP3_DIR);
+    DIR *dir = opendir(MP3_DIR); // Open the MP3 directory
     struct dirent *entry;
     char fileName[BUFFER_SIZE];
 
     if (!dir) {
-        fprintf(stderr, "Server: Unable to open mp3 directory: %s\n", strerror(errno));
+        perror("Unable to open mp3 directory"); // Error if directory cannot be opened
         return;
     }
 
+    // Iterate through the directory and send each MP3 file to the client
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_type == DT_REG && strstr(entry->d_name, ".mp3")) {
-            sprintf(fileName, "%s\n", entry->d_name);
+            snprintf(fileName, sizeof(fileName), "%s\n", entry->d_name);
             SSL_write(ssl, fileName, strlen(fileName));
         }
     }
 
-    closedir(dir);
-}
-
-void search_files(SSL *ssl, const char *search_term) {
-    DIR *dir = opendir(MP3_DIR);
-    struct dirent *entry;
-    char fileName[BUFFER_SIZE];
-
-    if (!dir) {
-        fprintf(stderr, "Server: Unable to open mp3 directory: %s\n", strerror(errno));
-        return;
-    }
-
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type == DT_REG && strstr(entry->d_name, search_term) && strstr(entry->d_name, ".mp3")) {
-            sprintf(fileName, "%s\n", entry->d_name);
-            SSL_write(ssl, fileName, strlen(fileName));
-        }
-    }
-
-    closedir(dir);
-}
-
-void send_file_with_hash(SSL *ssl, const char *filename) {
-    char filepath[BUFFER_SIZE];
-    snprintf(filepath, sizeof(filepath), "%s/%s", MP3_DIR, filename);
-    FILE *file = fopen(filepath, "rb");
-
-    if (!file) {
-        fprintf(stderr, "Server: Unable to open file: %s\n", strerror(errno));
-        return;
-    }
-
-    unsigned char hash[HASH_SIZE];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-
-    char buffer[BUFFER_SIZE];
-    int bytes;
-    while ((bytes = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
-        SSL_write(ssl, buffer, bytes);
-        SHA256_Update(&sha256, buffer, bytes);
-    }
-
-    SHA256_Final(hash, &sha256);
-    SSL_write(ssl, hash, HASH_SIZE);
-
-    fclose(file);
+    closedir(dir); // Close the directory when done
 }
 
 /**
-@brief The sequence of steps required to establish a secure SSL/TLS connection is:
-*
-*        1.  Initialize the SSL algorithms
-*        2.  Create and configure an SSL context object
-*        3.  Create a new network socket in the traditional way
-*        4.  Listen for incoming connections
-*        5.  Accept incoming connections as they arrive
-*        6.  Create a new SSL object for the newly arrived connection
-*        7.  Bind the SSL object to the network socket descriptor
-*
-*        Once these steps are completed successfully, use the functions SSL_read() and
-*        SSL_write() to read from/write to the socket, but using the SSL object rather
-*        then the socket descriptor.  Once the session is complete, free the memory
-*        allocated to the SSL object and close the socket descriptor.
-*/
+ * @brief Search for MP3 files that match the provided search term and send the results
+ *        to the client.
+ * 
+ * @param ssl - The SSL object used for secure communication.
+ * @param search_term - The term to search for in the file names.
+ */
+void search_files(SSL *ssl, const char *search_term) {
+    DIR *dir = opendir(MP3_DIR); // Open the MP3 directory
+    struct dirent *entry;
+    char fileName[BUFFER_SIZE];
+
+    if (!dir) {
+        perror("Unable to open mp3 directory");
+        return;
+    }
+
+    // Iterate through the directory and send files that match the search term
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG && strstr(entry->d_name, search_term) && strstr(entry->d_name, ".mp3")) {
+            snprintf(fileName, sizeof(fileName), "%s\n", entry->d_name);
+            SSL_write(ssl, fileName, strlen(fileName));
+        }
+    }
+
+    closedir(dir); // Close the directory when done
+}
+
+/**
+ * @brief Send the requested MP3 file to the client along with its SHA-256 hash
+ *        for integrity verification.
+ * 
+ * @param ssl - The SSL object used for secure communication.
+ * @param filename - The name of the file to be sent to the client.
+ */
+void send_file_with_hash(SSL *ssl, const char *filename) {
+    char filepath[BUFFER_SIZE];
+    snprintf(filepath, sizeof(filepath), "%s/%s", MP3_DIR, filename); // Build the file path
+    FILE *file = fopen(filepath, "rb"); // Open the file for reading in binary mode
+
+    // If the file doesn't exist, send an error to the client
+    if (!file) {
+        char errorMsg[BUFFER_SIZE];
+        snprintf(errorMsg, sizeof(errorMsg), "%s %d", ERROR_FILE_ERROR, errno);
+        SSL_write(ssl, errorMsg, strlen(errorMsg));
+        return;
+    }
+
+    unsigned char hash[HASH_SIZE]; // Buffer for the file's hash
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256); // Initialize the SHA-256 context
+
+    char buffer[BUFFER_SIZE];
+    int bytes;
+    // Read the file and send it in chunks, while calculating the hash
+    while ((bytes = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
+        SSL_write(ssl, buffer, bytes); // Send the file chunk to the client
+        SHA256_Update(&sha256, buffer, bytes); // Update the hash with the file chunk
+    }
+
+    // Finalize the SHA-256 hash and send it to the client
+    SHA256_Final(hash, &sha256);
+    SSL_write(ssl, hash, HASH_SIZE);
+
+    fclose(file); // Close the file when done
+}
+
+/**
+ * @brief Main server loop: initializes SSL, creates the socket, and handles
+ *        incoming client connections by spawning a new thread for each client.
+ */
 int main(int argc, char **argv) {
-  SSL_CTX*     ssl_ctx;
-  unsigned int sockfd;
-  unsigned int port;
-  char         buffer[BUFFER_SIZE];
+    unsigned int port = (argc == 2) ? atoi(argv[1]) : DEFAULT_PORT; // Use port from args or default
 
-  signal(SIGPIPE, SIG_IGN);
-  
-  // Initialize and create SSL data structures and algorithms
-  init_openssl();
-  ssl_ctx = create_new_context();
-  configure_context(ssl_ctx);
+    // Initialize the OpenSSL library
+    init_openssl();
+    SSL_CTX* ctx = create_new_context(); // Create SSL context for the server
+    configure_context(ctx); // Load certificate and private key
 
-  // Port can be specified on the command line. If it's not, use default port
-  switch(argc) {
-  case 1:
-    port = DEFAULT_PORT;
-    break;
-  case 2:
-    if (sscanf(argv[1], "%u", &port) != 1 || port < 1 || port > 65535) {
-      fprintf(stderr, "Error: Invalid port number. Please provide a port number between 1 and 65535.\n");
-      exit(EXIT_FAILURE);
-    }
-    break;
-  default:
-    fprintf(stderr, "Usage: server <port> (optional)\n");
-    exit(EXIT_FAILURE);
-  }
+    // Create the server socket and bind to the specified port
+    int server_socket = create_socket(port);
+    printf("Server is running on port %u\n", port);
 
-  // This will create a network socket and return a socket descriptor, which is
-  // and works just like a file descriptor, but for network communcations. Note
-  // we have to specify which TCP/UDP port on which we are communicating as an
-  // argument to our user-defined create_socket() function.
-  sockfd = create_socket(port);
+    while (true) {
+        struct sockaddr_in addr;
+        unsigned int len = sizeof(addr);
+        int *client_socket = malloc(sizeof(int)); // Allocate memory for client socket
 
-  // Wait for incoming connections and handle them as the arrive
-  // Keep process running until an error is encountered.
-  while(true) {
-    SSL*               ssl;
-    int                client;
-    int                readfd;
-    int                rcount;
-    const  char        reply[] = "Hello World!";
-    struct             sockaddr_in addr;
-    unsigned int       len = sizeof(addr);
-    char               client_addr[INET_ADDRSTRLEN];
+        // Accept incoming client connections
+        *client_socket = accept(server_socket, (struct sockaddr*)&addr, &len);
+        if (*client_socket < 0) {
+            perror("Unable to accept connection");
+            free(client_socket);
+            continue;
+        }
 
-    // Once an incoming connection arrives, accept it.  If this is successful,
-    // we now have a connection between client and server and can communicate
-    // using the socket descriptor
-    client = accept(sockfd, (struct sockaddr*)&addr, &len);
-    if (client < 0) {
-      fprintf(stderr, "Server: Unable to accept connection: %s\n",
-	      strerror(errno));
-      exit(EXIT_FAILURE);
+        // Spawn a new thread to handle each client connection
+        pthread_t tid;
+        pthread_create(&tid, NULL, handle_client, client_socket);
+        pthread_detach(tid); // Automatically clean up the thread when it finishes
     }
 
-    // Display the IPv4 network address of the connected client
-    inet_ntop(AF_INET, (struct in_addr*)&addr.sin_addr, client_addr,
-	      INET_ADDRSTRLEN);
-    printf("Server: Established TCP connection with client (%s) on port %u\n",
-	   client_addr, port);
+    // Clean up server resources before shutting down
+    close(server_socket);
+    SSL_CTX_free(ctx); // Free the SSL context
+    cleanup_openssl(); // Cleanup OpenSSL
 
-   // Here we are creating a new SSL object to bind to the socket descriptor
-    ssl = SSL_new(ssl_ctx);
-
-    // Bind the SSL object to the network socket descriptor. The socket
-    // descriptor will be used by OpenSSL to communicate with a client. This
-    // function should only be called once the TCP connection is established.
-    SSL_set_fd(ssl, client);
-
-    // The last step in establishing a secure connection is calling SSL_accept(),
-    // which executes the SSL/TLS handshake.  Because network sockets are
-    // blocking by default, this function will block as well until the handshake
-    // is complete.
-    if (SSL_accept(ssl) <= 0) {
-      fprintf(stderr, "Server: Could not establish secure connection:\n");
-      ERR_print_errors_fp(stderr);
-    } else {
-      printf("Server: Established SSL/TLS connection with client (%s)\n",
-	     client_addr);
-      handle_rpc_request(ssl);
-
-      // Terminate the SSL session, close the TCP connection, and clean up
-      printf("Server: Terminating SSL session and TCP connection with client (%s)\n",
-	     client_addr);
-      SSL_free(ssl);
-      close(client);
-    }
-
-  }
-    
-  // Tear down and clean up server data structures before terminating
-  SSL_CTX_free(ssl_ctx);
-  cleanup_openssl();
-  close(sockfd);
-
-  return EXIT_SUCCESS;  
-
+    return 0;
 }

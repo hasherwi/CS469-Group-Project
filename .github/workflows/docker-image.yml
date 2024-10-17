@@ -71,10 +71,11 @@ jobs:
         echo "Server started with PID $SERVER_PID"
         sleep 5
     
-    - name: Run Client Application with inputs piped
+    - name: Run Client  with Inputs Piped
       run: |
-        echo "Sending 0 to the client..."
-        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n5\n2\n0\n" | ./client localhost:8080
+        echo "Sending inputs to the client..."
+        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n1\n0\n" | ./client localhost:8080
+    # Need to test stopping playback and searching.
     
     - name: Stop Server
       if: always()

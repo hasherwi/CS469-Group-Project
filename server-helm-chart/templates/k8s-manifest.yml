@@ -36,7 +36,7 @@ spec:
       containers:
       - name: {{ .Values.metadata.namePrefix }}-container
         # Currently, the image is checked for locally (see below). If missing locally, it goes to Dockerhub where it doesn't exist. We'll change this up later.
-        image: hsherwin/cs469-server:latest
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         # Only download the image, if it's not present on the node already.
         imagePullPolicy: IfNotPresent
         ports:

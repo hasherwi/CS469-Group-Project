@@ -5,7 +5,11 @@ metadata:
   labels:
     key: app.kubernetes.io/name
     value: mp3-server
-    
+
+image:
+    repository: hsherwin/cs469-server
+    tag: latest
+  
 networking:
     containerPort: 8080
     servicePort: 8080

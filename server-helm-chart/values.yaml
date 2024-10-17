@@ -8,6 +8,7 @@ metadata:
     
 networking:
     containerPort: 8080
+    servicePort: 8080
     
 scaling:
     initialCount: 5

@@ -91,7 +91,7 @@ spec:
   # The port is opened on the service. The target port is where the traffic is directed to on the pod.
   ports:
     - protocol: TCP
-      port: 80
+      port: {{ .Values.networking.servicePort }}
       targetPort: {{ .Values.networking.containerPort }}
   # In short, a sessionAffinity says "I don't care about maintaining long-term connections between the client and the pod.
   sessionAffinity: None

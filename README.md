@@ -66,8 +66,18 @@ Options, from lowest to highest level:
 - Use our executable in the executables/ folder.
 
 ## Networking Tips
-Everything we created defaults to port 8080:
-- The executables will accept other ports as arguments, and the default is in CommunicationConstants.h.
-- The Dockerfile has the basics in place to support changing the port as an argument at the top of the Dockerfile; however, the executable's default port is used in the CMD step.
-- The Helm Chart stores the post in server-helm-chart/values.yaml/networking/containerPort.
-- The no-Helm manifest file is best changed with a replace all of "8080" to your port of choice.
+Everything we created defaults to port 8080. To change it, you have options (from lowest to highest level):
+-  The source code default is in CommunicationConstants.h.
+- The executables will accept other ports as an argument.
+- The Dockerfile supports argument "PORT" which is passed to the executables.
+- The no-Helm manifest file is best changed with a replace all of "8080" to your port of choice. This is passed to container as an environment variable.
+- The Helm Chart stores the port in server-helm-chart/values.yaml/networking/containerPort. This is passed to container as an environment variable.
+
+Keep in mind if you're going "custom" that the port is used in all of these locations:
+- The Kubernetes Service has two port configurations (For Helm, defined in values.yaml).
+- The Kubernetes Deployment env, containerPort, and both probes (For Helm, defined in values.yaml).
+- - env is passed to the container runtime, see next bullet.
+- The Dockerfile ARG, EXPOSE and CMD instructions.
+- - CMD is passed to the server executable, see below.
+- The server executable (which can get it as an argument or default to the value in CommunicationConstants.h).
+- The client executable (which can get it as an argument or default to the value in CommunicationConstants.h).

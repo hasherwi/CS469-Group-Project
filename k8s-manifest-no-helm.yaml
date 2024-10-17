@@ -65,6 +65,11 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
+        # Support parameterization of the port value.
+        env:
+          - name: PORT
+            value: "8080"
+            # quote ensures the given value is processed as a string.
         # Resources requests are a minimum available. Resource liimits are a maximum.
         resources:
           requests:

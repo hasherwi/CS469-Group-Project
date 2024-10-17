@@ -26,6 +26,6 @@ USER appuser
 # Expose the port your server will run on
 EXPOSE ${PORT}
 
-# Run the compiled server binary
-# CMD ["./server"]
-CMD ["./server", "${PORT}"]
+# Run the compiled server binary on port 8080
+ENTRYPOINT ["./server"]
+CMD ["8080"]

@@ -74,7 +74,7 @@ jobs:
     - name: Run Client Application with inputs piped
       run: |
         echo "Sending 0 to the client..."
-        echo -e "1\n3\n" | ./client localhost:8080
+        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n5\n2\n0\n" | ./client localhost:8080
     
     - name: Stop Server
       if: always()

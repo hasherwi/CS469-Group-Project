@@ -30,7 +30,7 @@ jobs:
     - name: Generate Kubernetes manifest
       run: |
         echo "Generating Kubernetes manifest..."
-        helm template server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
+        helm template --debug server-release ./server-helm-chart > k8s-manifest-no-helm.yaml
         
     - name: Evaluate Kubernetes manifest with kubeval
       run: |

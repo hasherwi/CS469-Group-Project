@@ -74,7 +74,7 @@ jobs:
     - name: Run Client  with Inputs Piped
       run: |
         echo "Sending inputs to the client..."
-        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n1\n2\n0\n" | ./client localhost:8080
+        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n1\n2\nflow\n0\n" | ./client localhost:8080
     # Need to test stopping playback and searching.
     
     - name: Stop Server

@@ -1,5 +1,5 @@
 # Create a Kubernetes namespace for the application. This supports isolation and security.
-apiVersion: v1
+apiVersion: {{ .Values.apiVersions.namespace }}
 kind: Namespace
 metadata:
   name: {{ .Values.namespace }}
@@ -7,7 +7,7 @@ metadata:
 ---
 
 # A Deployment ensures multiple copies of a pod are constantly requested.
-apiVersion: apps/v1
+apiVersion: {{ .Values.apiVersions.deployment }}
 kind: Deployment
 metadata:
   name: {{ .Values.metadata.namePrefix }}-deployment
@@ -24,8 +24,8 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 1
-      maxSurge: 1
+      maxUnavailable: {{ .Values.scaling.update.maxUnavailable }}
+      maxSurge: {{ .Values.scaling.update.maxSurge }}
   template:
     # This needs to match the Selector or the Deployment will make too many replicas.
     metadata:
@@ -75,7 +75,7 @@ spec:
 ---
 
 # A Service creates a single network entry point to multiple pods. It's kind of like a Load Balancer, but more complicated.
-apiVersion: v1
+apiVersion: {{ .Values.apiVersions.service }}
 kind: Service
 metadata:
   name: {{ .Values.metadata.labels.value }}-service
@@ -93,13 +93,13 @@ spec:
     - protocol: TCP
       port: {{ .Values.networking.servicePort }}
       targetPort: {{ .Values.networking.containerPort }}
-  # In short, a sessionAffinity says "I don't care about maintaining long-term connections between the client and the pod.
+  # In short, a sessionAffinity of "None" says "I don't care about maintaining long-term connections between the client and the pod.
   sessionAffinity: None
   
 ---
 
 # A HorizontalPodAutoscaler adds rules for when to change the replica count of a Deployment, dynamically.
-apiVersion: autoscaling/v1
+apiVersion: {{ .Values.apiVersions.hpa }}
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ .Values.metadata.labels.value }}-hpa
@@ -109,9 +109,9 @@ metadata:
 spec:
    # Which Kubernetes object do we scale.
   scaleTargetRef:
-    apiVersion: apps/v1
+    apiVersion: {{ .Values.apiVersions.deployment }}
     kind: Deployment
     name: {{ .Values.metadata.labels.value }}-deployment
-  minReplicas: 3  # Minimum number of pods
-  maxReplicas: 10  # Maximum number of pods
-  targetCPUUtilizationPercentage: 80  # Target X% CPU utilization
+  minReplicas: {{ .Values.scaling.hpa.min }}  # Minimum number of pods
+  maxReplicas: {{ .Values.scaling.hpa.max }}  # Maximum number of pods
+  targetCPUUtilizationPercentage: {{ .Values.scaling.hpa.cpuTarget }}  # Target X% CPU utilization

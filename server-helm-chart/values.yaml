@@ -16,3 +16,10 @@ networking:
     
 scaling:
     initialCount: 5
+    update:
+        maxUnavailable: 1
+        maxSurge: 1
+    hpa:
+        min: 3
+        max: 10
+        cpuTarget: 80

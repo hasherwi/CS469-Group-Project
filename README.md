@@ -62,7 +62,23 @@ When launching a menu will be presented to the user with all options:
 4. Make you already have Docker CLI and Docker Engine installed: https://docs.docker.com/engine/install/
 5. Make sure you have the needed libraries installed by running: sudo apt-get install -y libmpg123-dev libao-dev
 6. Make the executables by running (you really just need the client, but this is easier to use our Makefile): make
-7. Start the server container: docker run -d --name music-server -p 8080:8080 -e PORT=8080 hsherwin/cs469-server:latest
+7. Start the server container (this command will also download the container image from DockerHub): docker run -d --name music-server -p 8080:8080 -e PORT=8080 hsherwin/cs469-server:latest
+8. Get the server IP address: SERVER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' test-server)
+9. Run the client: ./client $SERVER_IP:8080
+10. Type "1" to get a list of songs.
+11. Type "3" to download a song.
+12. Type "Sprouts.mp3" as the song to download.
+13. Type "4" to play a song.
+14. Type "1" to play your only downloaded song.
+15. Type "5" to stop the song.
+16. Type "2" to search for a song.
+17. Type "flow" to see a searchable song.
+18. Type "0" to exit the client.
+19. To stop the server container, run: docker stop test-server
+20. To remove the server container, run: docker rm test-server
+21. To remove the server container image, run: docker rmi hsherwin/cs469-server:latest
+22. You can proceed to delete any other files or installs from prior steps as normal.
+15. Type "2" to search for a song.
 
 ## File & Folder Descriptions
 - .github/workflows/ - Test and Artifact Creation scripts for GitHub Actions.

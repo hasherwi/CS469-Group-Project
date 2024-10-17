@@ -55,6 +55,15 @@ When launching a menu will be presented to the user with all options:
 - Stop MP3
 - Stop Program
 
+## Sample Simple Step by Step Execution
+1. Download everything from GitHub as a ZIP.
+2. Unpackage the ZIP archive.
+3. If you're on GUI, open a command prompt/terminal to the directory you just created by unzipping.
+4. Make you already have Docker CLI and Docker Engine installed: https://docs.docker.com/engine/install/
+5. Make sure you have the needed libraries installed by running: sudo apt-get install -y libmpg123-dev libao-dev
+6. Make the executables by running (you really just need the client, but this is easier to use our Makefile): make
+7. Start the server container: docker run -d --name music-server -p 8080:8080 -e PORT=8080 hsherwin/cs469-server:latest
+
 ## File & Folder Descriptions
 - .github/workflows/ - Test and Artifact Creation scripts for GitHub Actions.
 - diagrams/ - UML Diagrams for Proposal.

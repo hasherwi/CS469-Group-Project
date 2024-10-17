@@ -74,7 +74,7 @@ jobs:
     - name: Run Client with Inputs Piped
       run: |
         echo "Sending inputs to the client (while the server executable is not containerized)..."
-        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n1\n2\nflow\n0\n" | ./client localhost:8080
+        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n1\n5\n2\nflow\n0\n" | ./client localhost:8080
     
     - name: Stop Server
       if: always()
@@ -124,7 +124,7 @@ jobs:
         echo "Sending inputs to the client (while the server is in a container)..."
         SERVER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' test-server)
         echo "Server IP is $SERVER_IP"
-        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n1\n2\nflow\n0\n" | ./client $SERVER_IP:8080
+        echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n1\n5\n2\nflow\n0\n" | ./client $SERVER_IP:8080
     
     - name: Stop and Remove Server Container
       run: |

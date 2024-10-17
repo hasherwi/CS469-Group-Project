@@ -44,7 +44,8 @@ spec:
         # Support parameterization of the port value.
         env:
           - name: PORT
-            value: {{ .Values.networking.containerPort }}
+            value: {{ .Values.networking.containerPort | quote }}
+            # quote ensures the given value is processed as a string.
         # Resources requests are a minimum available. Resource liimits are a maximum.
         resources:
           requests:

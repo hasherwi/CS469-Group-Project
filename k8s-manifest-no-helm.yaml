@@ -26,7 +26,7 @@ spec:
     - protocol: TCP
       port: 8080
       targetPort: 8080
-  # In short, a sessionAffinity says "I don't care about maintaining long-term connections between the client and the pod.
+  # In short, a sessionAffinity of "None" says "I don't care about maintaining long-term connections between the client and the pod.
   sessionAffinity: None
 ---
 # Source: server-helm-chart/templates/k8s-manifest.yml

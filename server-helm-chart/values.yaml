@@ -1,3 +1,9 @@
+apiVersions:
+    deployment: apps/v1
+    service: v1
+    namespace: v1
+    hpa: autoscaling/v1
+
 namespace: mp3-server
 
 metadata:

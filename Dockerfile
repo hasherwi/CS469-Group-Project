@@ -26,8 +26,6 @@ USER appuser
 # Expose the port your server will run on
 EXPOSE ${PORT}
 
-# Run the compiled server binary when the container starts
-ENTRYPOINT ["./server"]
-
-# And pass these arguments to the server
-CMD ["${PORT}"]
+# Run the binary with the port argument
+# Use the shell form for CMD to ensure the environment variable is resolved
+CMD ["sh", "-c", "./server ${PORT}"]

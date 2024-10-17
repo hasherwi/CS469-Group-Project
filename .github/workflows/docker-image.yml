@@ -84,8 +84,8 @@ jobs:
     - name: Import GPG keys
       run: |
         echo "Importing GPG keys..."
-        echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import -
-        echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import -
+        printf "%s" "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import -
+        printf "%s" "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import -
       env:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}

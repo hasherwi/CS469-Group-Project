@@ -64,3 +64,10 @@ Options, from lowest to highest level:
 Options, from lowest to highest level:
 - Build it from the source code yourself. The files' purposes are listed above. You can even use our Makefile.
 - Use our executable in the executables/ folder.
+
+## Networking Tips
+Everything we created defaults to port 8080:
+- The executables will accept other ports as arguments, and the default is in CommunicationConstants.h.
+- The Dockerfile has the basics in place to support changing the port as an argument at the top of the Dockerfile; however, the executable's default port is used in the CMD step.
+- The Helm Chart stores the post in server-helm-chart/values.yaml/networking/containerPort.
+- The no-Helm manifest file is best changed with a replace all of "8080" to your port of choice.

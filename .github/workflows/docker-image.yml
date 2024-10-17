@@ -87,7 +87,22 @@ jobs:
       run: |
         echo "Building Docker image..."
         docker build . --file Dockerfile --build-arg PORT=8080 --tag ${{ secrets.DOCKER_USERNAME }}/cs469-server:latest
-        
+    
+    - name: Create dummy ALSA configuration
+      run: |
+        echo "Creating dummy ALSA configuration..."
+        cat <<EOF > ~/.asoundrc
+        pcm.!default {
+          type plug
+          slave.pcm "null"
+        }
+        ctl.!default {
+          type hw
+          card 0
+        }
+        EOF
+      # This step creates a dummy sound device configuration for ALSA (Advanced Linux Sound Architecture).    
+    
     - name: Run a server container
       run: |
         echo "Running a copy of server container..."

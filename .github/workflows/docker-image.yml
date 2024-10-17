@@ -50,9 +50,8 @@ jobs:
       run: |
         echo "Installing dependencies..."
         sudo apt-get update
-        sudo apt-get install -y libmpg123-dev libao-dev gnupg2 pass
+        sudo apt-get install -y libmpg123-dev libao-dev
     # libmpg123-dev and libao-dev are for MP3 file interactions.
-    # gnupg2 and pass is for the Docker Credentials Helper.
     
     - name: Run make command
       run: |
@@ -86,33 +85,13 @@ jobs:
           echo "Server is running, status: $STATUS"
         fi
     
-    - name: Import GPG keys
-      run: |
-        echo "Importing GPG keys..."
-        printf "%s" "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import -
-        printf "%s" "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --batch --import -
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
-
-    - name: Initialize pass with GPG key
-      run: |
-        echo "Initializing pass..."
-        GPG_ID=$(gpg --list-keys --with-colons | grep pub | head -n1 | cut -d':' -f5)
-        pass init "$GPG_ID"
-
-    - name: Log in to Docker Hub securely using pass
+    - name: Log in to DockerHub
       run: |
         echo "Accessing DockerHub..."
         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
       env:
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-    
-    #- name: Log in to DockerHub
-    #  run: |
-    #    echo "Accessing DockerHub..."
-    #    echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
         
     - name: Push the Docker image
       run: |

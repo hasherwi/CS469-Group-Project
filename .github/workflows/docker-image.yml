@@ -67,8 +67,8 @@ jobs:
       run: |
         echo "Starting Server..."
         ./server &
-        SERVER_PID=$!
-        echo "Server started with PID $SERVER_PID"
+        echo $! > server_pid.txt
+        echo "Server started with PID $(cat server_pid.txt)"
         sleep 5
     
     - name: Run Client  with Inputs Piped
@@ -81,7 +81,7 @@ jobs:
       if: always()
       run: |
         echo "Stopping Server..."
-        kill $SERVER_PID
+        kill $(cat server_pid.txt)
         echo "Server stopped."
     
     - name: Build the Docker image

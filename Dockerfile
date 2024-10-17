@@ -26,6 +26,8 @@ USER appuser
 # Expose the port your server will run on
 EXPOSE ${PORT}
 
-# Run the compiled server binary on port 8080
+# Run the compiled server binary when the container starts
 ENTRYPOINT ["./server"]
-CMD ["8080"]
+
+# And pass these arguments to the server
+CMD ["${PORT}"]

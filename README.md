@@ -32,6 +32,29 @@ The K8s service and containers will run on nodes of the Kubernetes cluster. Kube
 UML Diagram:
 ![MP3DownloadAndPlay.png](diagrams/MP3DownloadAndPlay.png)
 
+## How to Run the Server
+Options, from lowest to highest level:
+- Build it from the source code yourself. The files' purposes are listed above. You can even use our Makefile.
+- Use our executable in the executables/ folder.
+- Consume the Docker Image as a .tar file.
+- Consume the Docker Image yourself from Dockerhub. It's available at: hsherwin/cs469-server:latest
+- Download and apply k8s-manifest-no-helm.yaml to your own K8s cluster: kubectl apply -f k8s-manifest-no-helm.yaml
+- Download and install the Helm chart to your own K8s cluster: helm upgrade --install server-release ./server-helm-chart
+
+## How to Run the Client
+Options, from lowest to highest level:
+- Build it from the source code yourself. The files' purposes are listed above. You can even use our Makefile.
+- Use our executable in the executables/ folder.
+
+## Supported Client Operations:
+When launching a menu will be presented to the user with all options:
+- List available MP3s to download
+- Search MP3s to download
+- Download MP3
+- Play MP3
+- Stop MP3
+- Stop Program
+
 ## File & Folder Descriptions
 - .github/workflows/ - Test and Artifact Creation scripts for GitHub Actions.
 - diagrams/ - UML Diagrams for Proposal.
@@ -49,21 +72,6 @@ UML Diagram:
 - playaudio.h - A component of the client code in C language.
 - server-image.tar - A .tar version of the server Docker image.
 - server.c - Server code in C language.
-
-
-## How to Run Server
-Options, from lowest to highest level:
-- Build it from the source code yourself. The files' purposes are listed above. You can even use our Makefile.
-- Use our executable in the executables/ folder.
-- Consume the Docker Image as a .tar file.
-- Consume the Docker Image yourself from Dockerhub. It's available at: hsherwin/cs469-server:latest
-- Download and apply k8s-manifest-no-helm.yaml to your own K8s cluster: kubectl apply -f k8s-manifest-no-helm.yaml
-- Download and install the Helm chart to your own K8s cluster: helm upgrade --install server-release ./server-helm-chart
-
-## How to Run Client
-Options, from lowest to highest level:
-- Build it from the source code yourself. The files' purposes are listed above. You can even use our Makefile.
-- Use our executable in the executables/ folder.
 
 ## Networking Tips
 Everything we created defaults to port 8080. To change it, you have options (from lowest to highest level):

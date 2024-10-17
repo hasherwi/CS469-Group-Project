@@ -2,7 +2,7 @@
 
 /**
 * @file client.c
-* @author Harrison Sherwin
+* @author Corey Brantley, Shen Knoll, Harrison Sherwin
 * @date  28 September 2024
  * @brief This program is a small client application that establishes a secure
           TCP connection to a server and simply exchanges messages. It uses a

@@ -1,8 +1,7 @@
 /**
 * @file server.c
-* @authors
-*   Corey Brantley, Shen Knoll, Harrison Sherwin
-* @date  28 September 2024
+* @author Corey Brantley, Shen Knoll, Harrison Sherwin
+* @date  20 October 2024
 * @brief  This program is a multithreaded server application that listens for incoming TCP
 *         connections from clients, processes requests, and transfers MP3 files to the client.
 *         It uses secure SSL/TLS connections with certificates generated using the openssl 

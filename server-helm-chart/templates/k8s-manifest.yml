@@ -41,6 +41,10 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: {{ .Values.networking.containerPort }}
+        # Support parameterization of the port value.
+        env:
+          - name: PORT
+            value: {{ .Values.networking.containerPort }}
         # Resources requests are a minimum available. Resource liimits are a maximum.
         resources:
           requests:

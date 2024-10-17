@@ -75,7 +75,6 @@ jobs:
       run: |
         echo "Sending inputs to the client (while the server executable is not containerized)..."
         echo -e "1\n3\nnightfall-future-bass-music-228100.mp3\n4\n1\n2\nflow\n0\n" | ./client localhost:8080
-    # Need to test stopping playback and searching.
     
     - name: Stop Server
       if: always()
@@ -105,7 +104,7 @@ jobs:
           echo "Server is running, status: $STATUS"
         fi
         
-     - name: Run Client to interact with Server inside Docker container
+    - name: Run Client to interact with Server inside Docker container
       run: |
         echo "Sending inputs to the client (while the server is in a container)..."
         SERVER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' test-server)

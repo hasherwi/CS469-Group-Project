@@ -63,6 +63,26 @@ jobs:
         echo "Generating SSL data..."
         openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem -subj "/C=US/ST=CO/L=Denver/O=RegisUniversity/OU=CS469/CN=regis.edu/emailAddress=${{ secrets.REGIS_EMAIL }}"
     
+    - name: Start Server in Background
+      run: |
+        echo "Starting Server..."
+        ./server &
+        SERVER_PID=$!
+        echo "Server started with PID $SERVER_PID"
+        sleep 5
+    
+    - name: Run Client Application with inputs piped
+      run: |
+        echo "Sending 0 to the client..."
+        echo -e "1\n3\n" | ./client localhost:8080
+    
+    - name: Stop Server
+      if: always()
+      run: |
+        echo "Stopping Server..."
+        kill $SERVER_PID
+        echo "Server stopped."
+    
     - name: Build the Docker image
       run: |
         echo "Building Docker image..."
@@ -72,7 +92,6 @@ jobs:
       run: |
         echo "Running a copy of server container..."
         docker run -d --name test-server -p 8080:8080 -e PORT=8080 ${{ secrets.DOCKER_USERNAME }}/cs469-server:latest
-
       
     - name: Check Docker container status
       run: |

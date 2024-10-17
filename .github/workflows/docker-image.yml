@@ -45,7 +45,9 @@ jobs:
       run: |
         echo "Installing dependencies..."
         sudo apt-get update
-        sudo apt-get install -y libmpg123-dev libao-dev
+        sudo apt-get install -y libmpg123-dev libao-dev gnupg2
+    # libmpg123-dev and libao-dev are for MP3 file interactions.
+    # gnupg2 is for the Docker Credentials Helper.
     
     - name: Run make command
       run: |
